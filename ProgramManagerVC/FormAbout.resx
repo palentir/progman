@@ -117,4 +117,15 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="richTextBox1.Text" xml:space="preserve">
+    <value>An open-source clone of "progman" program from Windows 3.1 written in C#.
+
+Contributors:
+Veselcraft (@veselcraft on GitHub)
+Marf (@Marfjeh on GitHub)
+http://github.com/veselcraft/progman
+
+Forked by Ross (@Palentir on GitHub) 29/11/2025
+http://github.com/palentir/progman</value>
+  </data>
 </root>

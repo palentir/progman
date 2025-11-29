@@ -21,7 +21,7 @@ namespace ProgramManagerVC
 
         private void LinkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            Process.Start("https://github.com/veselcraft/progman");
+            Process.Start("https://github.com/panetir/progman");
         }
 
         private void FormAbout_Load(object sender, EventArgs e)
