@@ -39,9 +39,14 @@ namespace ProgramManagerVC
                 {
                     e.Cancel = true;
                 }
+                else
+                {
+                    SaveWindowSize();
+                }
             }
             else if (e.CloseReason == CloseReason.ApplicationExitCall)
             {
+                SaveWindowSize();
                 e.Cancel = false;
             }
         }
@@ -50,8 +55,7 @@ namespace ProgramManagerVC
         {
             InitializeMDI();
             InitializeTitle();
-
-
+            LoadWindowSize();
         }
 
         private void InitializeTitle()
@@ -70,6 +74,7 @@ namespace ProgramManagerVC
         {
             data.SendQueryWithoutReturn("CREATE TABLE IF NOT EXISTS \"groups\" (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, status INTEGER)");
             data.SendQueryWithoutReturn("CREATE TABLE IF NOT EXISTS \"items\" (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, path TEXT, icon TEXT, groups INTEGER)");
+            data.SendQueryWithoutReturn("CREATE TABLE IF NOT EXISTS \"settings\" (id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT, value TEXT)");
             DataTable groups = new DataTable();
             groups = data.SendQueryWithReturn("SELECT * FROM groups");
             if (groups.Rows.Count > 0)
@@ -249,6 +254,60 @@ namespace ProgramManagerVC
 
                 CloseAllMDIWindows();
                 InitializeMDI();
+            }
+        }
+
+        private void LoadWindowSize()
+        {
+            DataTable settings = data.SendQueryWithReturn("SELECT * FROM settings WHERE key = 'window_width' OR key = 'window_height'");
+            if (settings.Rows.Count > 0)
+            {
+                int width = 0;
+                int height = 0;
+                
+                foreach (DataRow row in settings.Rows)
+                {
+                    if (row[1].ToString() == "window_width")
+                    {
+                        int.TryParse(row[2].ToString(), out width);
+                    }
+                    else if (row[1].ToString() == "window_height")
+                    {
+                        int.TryParse(row[2].ToString(), out height);
+                    }
+                }
+                
+                if (width > 0 && height > 0)
+                {
+                    this.Width = width;
+                    this.Height = height;
+                }
+            }
+        }
+
+        private void SaveWindowSize()
+        {
+            if (this.WindowState == FormWindowState.Normal)
+            {
+                DataTable existingWidth = data.SendQueryWithReturn("SELECT * FROM settings WHERE key = 'window_width'");
+                if (existingWidth.Rows.Count > 0)
+                {
+                    data.SendQueryWithoutReturn("UPDATE settings SET value = '" + this.Width + "' WHERE key = 'window_width'");
+                }
+                else
+                {
+                    data.SendQueryWithoutReturn("INSERT INTO settings (id, key, value) VALUES (NULL, 'window_width', '" + this.Width + "')");
+                }
+
+                DataTable existingHeight = data.SendQueryWithReturn("SELECT * FROM settings WHERE key = 'window_height'");
+                if (existingHeight.Rows.Count > 0)
+                {
+                    data.SendQueryWithoutReturn("UPDATE settings SET value = '" + this.Height + "' WHERE key = 'window_height'");
+                }
+                else
+                {
+                    data.SendQueryWithoutReturn("INSERT INTO settings (id, key, value) VALUES (NULL, 'window_height', '" + this.Height + "')");
+                }
             }
         }
     }
