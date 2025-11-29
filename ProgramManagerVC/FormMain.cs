@@ -41,12 +41,12 @@ namespace ProgramManagerVC
                 }
                 else
                 {
-                    SaveWindowSize();
+                    SaveWindowSizeAndPosition();
                 }
             }
             else if (e.CloseReason == CloseReason.ApplicationExitCall)
             {
-                SaveWindowSize();
+                SaveWindowSizeAndPosition();
                 e.Cancel = false;
             }
         }
@@ -55,7 +55,7 @@ namespace ProgramManagerVC
         {
             InitializeMDI();
             InitializeTitle();
-            LoadWindowSize();
+            LoadWindowSizeAndPosition();
         }
 
         private void InitializeTitle()
@@ -298,23 +298,34 @@ namespace ProgramManagerVC
             }
         }
 
-        private void LoadWindowSize()
+        private void LoadWindowSizeAndPosition()
         {
-            DataTable settings = data.SendQueryWithReturn("SELECT * FROM settings WHERE key = 'window_width' OR key = 'window_height'");
+            DataTable settings = data.SendQueryWithReturn("SELECT * FROM settings WHERE key IN ('window_width', 'window_height', 'window_x', 'window_y')");
             if (settings.Rows.Count > 0)
             {
                 int width = 0;
                 int height = 0;
+                int x = -1;
+                int y = -1;
                 
                 foreach (DataRow row in settings.Rows)
                 {
-                    if (row[1].ToString() == "window_width")
+                    string key = row[1].ToString();
+                    if (key == "window_width")
                     {
                         int.TryParse(row[2].ToString(), out width);
                     }
-                    else if (row[1].ToString() == "window_height")
+                    else if (key == "window_height")
                     {
                         int.TryParse(row[2].ToString(), out height);
+                    }
+                    else if (key == "window_x")
+                    {
+                        int.TryParse(row[2].ToString(), out x);
+                    }
+                    else if (key == "window_y")
+                    {
+                        int.TryParse(row[2].ToString(), out y);
                     }
                 }
                 
@@ -323,10 +334,38 @@ namespace ProgramManagerVC
                     this.Width = width;
                     this.Height = height;
                 }
+                
+                if (x >= 0 && y >= 0)
+                {
+                    if (IsLocationOnScreen(x, y, this.Width, this.Height))
+                    {
+                        this.StartPosition = FormStartPosition.Manual;
+                        this.Location = new Point(x, y);
+                    }
+                }
             }
         }
 
-        private void SaveWindowSize()
+        private bool IsLocationOnScreen(int x, int y, int width, int height)
+        {
+            Rectangle windowRect = new Rectangle(x, y, width, height);
+            
+            foreach (Screen screen in Screen.AllScreens)
+            {
+                if (screen.WorkingArea.IntersectsWith(windowRect))
+                {
+                    Rectangle intersection = Rectangle.Intersect(screen.WorkingArea, windowRect);
+                    if (intersection.Width >= 100 && intersection.Height >= 100)
+                    {
+                        return true;
+                    }
+                }
+            }
+            
+            return false;
+        }
+
+        private void SaveWindowSizeAndPosition()
         {
             if (this.WindowState == FormWindowState.Normal)
             {
@@ -348,6 +387,26 @@ namespace ProgramManagerVC
                 else
                 {
                     data.SendQueryWithoutReturn("INSERT INTO settings (id, key, value) VALUES (NULL, 'window_height', '" + this.Height + "')");
+                }
+
+                DataTable existingX = data.SendQueryWithReturn("SELECT * FROM settings WHERE key = 'window_x'");
+                if (existingX.Rows.Count > 0)
+                {
+                    data.SendQueryWithoutReturn("UPDATE settings SET value = '" + this.Location.X + "' WHERE key = 'window_x'");
+                }
+                else
+                {
+                    data.SendQueryWithoutReturn("INSERT INTO settings (id, key, value) VALUES (NULL, 'window_x', '" + this.Location.X + "')");
+                }
+
+                DataTable existingY = data.SendQueryWithReturn("SELECT * FROM settings WHERE key = 'window_y'");
+                if (existingY.Rows.Count > 0)
+                {
+                    data.SendQueryWithoutReturn("UPDATE settings SET value = '" + this.Location.Y + "' WHERE key = 'window_y'");
+                }
+                else
+                {
+                    data.SendQueryWithoutReturn("INSERT INTO settings (id, key, value) VALUES (NULL, 'window_y', '" + this.Location.Y + "')");
                 }
             }
         }
