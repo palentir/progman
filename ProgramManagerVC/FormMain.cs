@@ -75,6 +75,31 @@ namespace ProgramManagerVC
             data.SendQueryWithoutReturn("CREATE TABLE IF NOT EXISTS \"groups\" (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, status INTEGER)");
             data.SendQueryWithoutReturn("CREATE TABLE IF NOT EXISTS \"items\" (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, path TEXT, icon TEXT, groups INTEGER)");
             data.SendQueryWithoutReturn("CREATE TABLE IF NOT EXISTS \"settings\" (id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT, value TEXT)");
+            
+            DataTable groupsSchema = data.SendQueryWithReturn("PRAGMA table_info(groups)");
+            bool hasXColumn = false;
+            bool hasYColumn = false;
+            bool hasWidthColumn = false;
+            bool hasHeightColumn = false;
+            
+            foreach (DataRow row in groupsSchema.Rows)
+            {
+                string columnName = row["name"].ToString();
+                if (columnName == "x") hasXColumn = true;
+                if (columnName == "y") hasYColumn = true;
+                if (columnName == "width") hasWidthColumn = true;
+                if (columnName == "height") hasHeightColumn = true;
+            }
+            
+            if (!hasXColumn)
+                data.SendQueryWithoutReturn("ALTER TABLE groups ADD COLUMN x INTEGER DEFAULT 0");
+            if (!hasYColumn)
+                data.SendQueryWithoutReturn("ALTER TABLE groups ADD COLUMN y INTEGER DEFAULT 0");
+            if (!hasWidthColumn)
+                data.SendQueryWithoutReturn("ALTER TABLE groups ADD COLUMN width INTEGER DEFAULT 300");
+            if (!hasHeightColumn)
+                data.SendQueryWithoutReturn("ALTER TABLE groups ADD COLUMN height INTEGER DEFAULT 250");
+            
             DataTable groups = new DataTable();
             groups = data.SendQueryWithReturn("SELECT * FROM groups");
             if (groups.Rows.Count > 0)
@@ -85,6 +110,22 @@ namespace ProgramManagerVC
                     child.Text = groups.Rows[i][1].ToString();
                     child.Tag = groups.Rows[i][0].ToString();
                     child.MdiParent = this;
+                    
+                    if (groups.Columns.Count >= 7 && groups.Rows[i][3] != DBNull.Value)
+                    {
+                        int x = Convert.ToInt32(groups.Rows[i][3]);
+                        int y = Convert.ToInt32(groups.Rows[i][4]);
+                        int width = Convert.ToInt32(groups.Rows[i][5]);
+                        int height = Convert.ToInt32(groups.Rows[i][6]);
+                        
+                        if (width > 0 && height > 0)
+                        {
+                            child.StartPosition = FormStartPosition.Manual;
+                            child.Location = new Point(x, y);
+                            child.Size = new Size(width, height);
+                        }
+                    }
+                    
                     switch (groups.Rows[i][2].ToString())
                     {
                         case "0":

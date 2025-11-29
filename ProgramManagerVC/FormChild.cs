@@ -20,8 +20,15 @@ namespace ProgramManagerVC
 
         private void FormChild_FormClosing(object sender, FormClosingEventArgs e)
         {
-            this.WindowState = FormWindowState.Minimized;
-            e.Cancel = true;
+            if (e.CloseReason == CloseReason.MdiFormClosing)
+            {
+                e.Cancel = false;
+            }
+            else
+            {
+                this.WindowState = FormWindowState.Minimized;
+                e.Cancel = true;
+            }
         }
 
         private void FormChild_Load(object sender, EventArgs e)
@@ -73,17 +80,45 @@ namespace ProgramManagerVC
 
         private void FormChild_ResizeEnd(object sender, EventArgs e)
         {
+            SaveWindowState();
+        }
+
+        private void FormChild_Move(object sender, EventArgs e)
+        {
+            if (this.WindowState == FormWindowState.Normal)
+            {
+                SaveWindowState();
+            }
+        }
+
+        private void SaveWindowState()
+        {
+            int status = 1;
             if (this.WindowState == FormWindowState.Minimized)
             {
-                data.SendQueryWithoutReturn("UPDATE groups SET status=0 WHERE id="+this.Tag);
+                status = 0;
             }
             else if (this.WindowState == FormWindowState.Normal)
             {
-                data.SendQueryWithoutReturn("UPDATE groups SET status=1 WHERE id=" + this.Tag);
+                status = 1;
             }
             else if (this.WindowState == FormWindowState.Maximized)
             {
-                data.SendQueryWithoutReturn("UPDATE groups SET status=2 WHERE id=" + this.Tag);
+                status = 2;
+            }
+            
+            if (this.WindowState == FormWindowState.Normal)
+            {
+                data.SendQueryWithoutReturn("UPDATE groups SET status=" + status + 
+                    ", x=" + this.Location.X + 
+                    ", y=" + this.Location.Y + 
+                    ", width=" + this.Width + 
+                    ", height=" + this.Height + 
+                    " WHERE id=" + this.Tag);
+            }
+            else
+            {
+                data.SendQueryWithoutReturn("UPDATE groups SET status=" + status + " WHERE id=" + this.Tag);
             }
         }
 

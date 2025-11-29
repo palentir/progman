@@ -201,6 +201,7 @@
             this.Text = "FormChild";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FormChild_FormClosing);
             this.Load += new System.EventHandler(this.FormChild_Load);
+            this.Move += new System.EventHandler(this.FormChild_Move);
             this.Resize += new System.EventHandler(this.FormChild_ResizeEnd);
             this.FileMenu.ResumeLayout(false);
             this.ListMenu.ResumeLayout(false);
