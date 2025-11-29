@@ -112,114 +112,24 @@
     <value>2.0</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <metadata name="imageListIcons.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+  <assembly alias="System.Drawing" name="System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
+  <data name="imageListIcons.TrayLocation" type="System.Drawing.Point, System.Drawing">
     <value>17, 17</value>
-  </metadata>
-  <metadata name="FileMenu.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+  </data>
+  <data name="FileMenu.TrayLocation" type="System.Drawing.Point, System.Drawing">
     <value>149, 17</value>
-  </metadata>
-  <metadata name="ListMenu.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+  </data>
+  <data name="ListMenu.TrayLocation" type="System.Drawing.Point, System.Drawing">
     <value>304, 17</value>
-  </metadata>
-  <assembly alias="System.Drawing" name="System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
-  <data name="$this.Icon" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
-    <value>
-        AAABAAIAICAAAAEAIACoEAAAJgAAABAQAAABACAAaAQAAM4QAAAoAAAAIAAAAEAAAAABACAAAAAAAIAQ
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA09PT/9PT0//T09P/09PT/9PT
-        0//T09P/09PT/9PT0//T09P/09PT/9PT0//T09P/09PT/9PT0//T09P/09PT/9PT0//T09P/09PT/9PT
-        0//T09P/09PT/9PT0//T09P/09PT/9PT0//T09P/09PT/9PT0//T09P/09PT/9PT0//T09P/////////
-        ////////////////////////////////////////////////////////////////////////////////
-        ////////////////////////////////////////////////////////////////////////09PT/9PT
-        0//6+vr/////////////////////////////////////////////////////////////////////////
-        ////////////////////////////////////////////////////////////////////////////////
-        ///T09P/09PT//r6+v//////////////////////////////////////////////////////////////
-        ////////////////////////////////////////////////////////////////////////////////
-        /////////////9PT0//T09P/+vr6////////////////////////////////////////////////////
-        ////////////////////////////////////////////////////////////////////////////////
-        ////////////////////////09PT/9PT0//6+vr//////wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA////
-        ////////AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD///////////8AAAD/AAAA/wAAAP8AAAD/AAAA/wAA
-        AP/////////////////////////////////T09P/09PT//r6+v//////////////////////////////
-        ////////////////////////////////////////////////////////////////////////////////
-        /////////////////////////////////////////////9PT0//T09P/+vr6////////////AAD//wAA
-        //8AAP//AAD///////////////////////8At///ALf//wC3//8At////////////////////////+7/
-        AP/u/wD/7v8A/+7/AP//////////////////////////////////////09PT/9PT0//6+vr/////////
-        //8AAP//AAD//wAA//8AAP///////////////////////wC3//8At///ALf//wC3////////////////
-        ////////7v8A/+7/AP/u/wD/7v8A///////////////////////////////////////T09P/09PT//r6
-        +v///////////wAA//8AAP//AAD//wAA////////////////////////ALf//wC3//8At///ALf/////
-        ///////////////////u/wD/7v8A/+7/AP/u/wD//////////////////////////////////////9PT
-        0//T09P/+vr6////////////AAD//wAA//8AAP//AAD///////////////////////8At///ALf//wC3
-        //8At////////////////////////+7/AP/u/wD/7v8A/+7/AP//////////////////////////////
-        ////////09PT/9PT0//6+vr/////////////////////////////////////////////////////////
-        ////////////////////////////////////////////////////////////////////////////////
-        ///////////////////T09P/09PT//r6+v//////////////////////////////////////////////
-        ////////////////////////////////////////////////////////////////////////////////
-        /////////////////////////////9PT0//T09P/+vr6//////8AAAD/AAAA/wAAAP8AAAD/AAAA/wAA
-        AP///////////wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA////////////AAAA/wAAAP8AAAD/AAAA/wAA
-        AP8AAAD/////////////////////////////////09PT/9PT0//6+vr/////////////////////////
-        ////////////////////////////////////////////////////////////////////////////////
-        ///////////////////////////////////////////////////T09P/09PT/////////////////wDU
-        qf8A1Kn/ANSp/wDUqf///////////////////////4gA/wD/Vf8A/1X/AP9V////////////////////
-        //8A1Kn/ANSp/wDUqf8A1Kn//////////////////////////////////////9PT0//T09P/////////
-        ////////ANSp/wDUqf8A1Kn/ANSp////////////////////////iAD/AP9V/wD/Vf8A/1X/////////
-        /////////////wDUqf8A1Kn/ANSp/wDUqf//////////////////////////////////////09PT/9PT
-        0/////////////////8A1Kn/ANSp/wDUqf8A1Kn///////////////////////+IAP//iAD//4gA/wD/
-        Vf//////////////////////ANSp/wDUqf8A1Kn/ANSp////////////////////////////////////
-        ///T09P/09PT/////////////////wDUqf8A1Kn/ANSp/wDUqf///////////////////////4gA//+I
-        AP//iAD//4gA//////////////////////8A1Kn/ANSp/wDUqf8A1Kn/////////////////////////
-        /////////////9PT0//T09P/////////////////////////////////////////////////////////
-        ////////////////////////////////////////////////////////////////////////////////
-        ////////////////////////09PT/9PT0//T09P/09PT/9PT0//T09P/09PT/9PT0//T09P/09PT/9PT
-        0//T09P/09PT/9PT0//T09P/09PT/9PT0//T09P/09PT/9PT0//T09P/09PT/9PT0//T09P/09PT/9PT
-        0//T09P/09PT/9PT0//T09P/09PT/9PT0//T09P/09PT/8iJTf/IiU3/yIlN/8iJTf/IiU3/yIlN/8iJ
-        Tf/IiU3/yIlN/8iJTf/IiU3/yIlN/8iJTf/IiU3/yIlN/8iJTf/IiU3/yIlN/8iJTf/IiU3/yIlN/8iJ
-        Tf/IiU3/yIlN/8iJTf/IiU3/yIlN/8iJTf/IiU3/yIlN/9PT0//T09P/yIlN/8iJTf/IiU3/yIlN/8iJ
-        Tf/IiU3/yIlN/8iJTf/IiU3/yIlN/8iJTf/IiU3/yIlN/8iJTf/IiU3/yIlN/8iJTf/IiU3/yIlN/8iJ
-        Tf/IiU3/yIlN/8iJTf/IiU3//////8iJTf//////yIlN///////IiU3/09PT/9LPy//IiU3/yIlN/8iJ
-        Tf/IiU3/yIlN/8iJTf/IiU3/yIlN/8iJTf/IiU3/yIlN/8iJTf/IiU3/yIlN/8iJTf/IiU3/yIlN/8iJ
-        Tf/IiU3/yIlN/8iJTf/IiU3/yIlN/8iJTf/IiU3/yIlN/8iJTf/IiU3/yIlN/8iJTf/T09P/09PT/9PT
-        0//T09P/09PT/9PT0//T09P/09PT/9PT0//T09P/09PT/9PT0//T09P/09PT/9PT0//T09P/09PT/9PT
-        0//T09P/09PT/9PT0//T09P/09PT/9PT0//T09P/09PT/9PT0//T09P/09PT/9PT0//T09P/09PT/9PT
-        0/8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///////////////wAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////////////////////KAAAABAAAAAgAAAAAQAgAAAA
-        AABABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADT09P/09PT/9PT0//T09P/09PT/9PT0//T09P/09PT/9PT
-        0//T09P/09PT/9PT0//T09P/09PT/9PT0//T09P/09PT////////////////////////////////////
-        ///////////////////////////////////8/Pz/09PT/9PT0///////////////////////////////
-        /////////////////////////////////////////Pz8/9PT0//T09P/////////////////////////
-        //////////////////////////////////////////////z8/P/T09P/09PT//////8AAAD/AAAA/wAA
-        AP8AAAD//////wAAAP8AAAD/AAAA/wAAAP/////////////////8/Pz/09PT/9PT0///////////////
-        /////////////////////////////////////////////////////////Pz8/9PT0//T09P/////////
-        //8wff//MH3//////////////////3B9AP8AoQD///////////////////////z8/P/T09P/09PT////
-        ////////MH3//zB9//////////////////8AoQD/cH0A///////////////////////8/Pz/09PT/9PT
-        0////////////////////////////////////////////////////////////////////////Pz8/9PT
-        0//T09P/09PT/9PT0//T09P/09PT/9PT0//T09P/09PT/9PT0//T09P/09PT/9PT0//T09P/09PT/9PT
-        0//T09P/09PT/8iJTf/IiU3/yIlN/8iJTf/IiU3/yIlN/8iJTf/IiU3/yIlN/8iJTf/IiU3/yIlN/8iJ
-        Tf/IiU3/09PT/9PT0//IiU3/yIlN/8iJTf/IiU3/yIlN/8iJTf/IiU3/yIlN///////IiU3//////8iJ
-        Tf//////yIlN/9PT0//T09P/yIlN/8iJTf/IiU3/yIlN/8iJTf/IiU3/yIlN/8iJTf/IiU3/yIlN/8iJ
-        Tf/IiU3/yIlN/8iJTf/T09P/09PT/9PT0//T09P/09PT/9PT0//T09P/09PT/9PT0//T09P/09PT/9PT
-        0//T09P/09PT/9PT0//T09P/09PT/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//wAA
-</value>
+  </data>
+  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
+  <data name="$this.Icon" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\close.ico;System.Drawing.Icon, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+    <comment>Close icon</comment>
   </data>
 </root>
