@@ -14,9 +14,47 @@ namespace ProgramManagerVC
 {
     public partial class FormMain : Form
     {
+        private List<MinimizedIcon> minimizedIcons = new List<MinimizedIcon>();
+        private IconHostForm iconHost;
+
+        // Use full client area for hosting icons (no separate bottom bar)
+        private Control GetIconHost()
+        {
+            if (iconHost == null || iconHost.IsDisposed)
+            {
+                iconHost = new IconHostForm();
+                iconHost.MdiParent = this;
+                iconHost.FormBorderStyle = FormBorderStyle.None;
+                iconHost.ShowInTaskbar = false;
+                iconHost.ControlBox = false;
+                iconHost.MinimizeBox = false;
+                iconHost.MaximizeBox = false;
+                iconHost.StartPosition = FormStartPosition.Manual;
+                iconHost.BackColor = SystemColors.Window;
+                iconHost.Dock = DockStyle.Fill; // fill MDI client to avoid top gray patch
+                iconHost.Show();
+                iconHost.SendToBack();
+            }
+            EnsureIconHostLayout();
+            return iconHost;
+        }
+
+        private void EnsureIconHostLayout()
+        {
+            if (iconHost != null && !iconHost.IsDisposed)
+            {
+                // Ensure full fill and location within MDI client coordinates
+                iconHost.Dock = DockStyle.Fill;
+                iconHost.Location = new Point(0, 0);
+                iconHost.SendToBack();
+            }
+        }
+
         public FormMain()
         {
             InitializeComponent();
+            this.MdiChildActivate += FormMain_MdiChildActivate;
+            this.Resize += FormMain_Resize;
         }
 
         private void NewToolStripMenuItem_Click(object sender, EventArgs e)
@@ -81,6 +119,7 @@ namespace ProgramManagerVC
             bool hasYColumn = false;
             bool hasWidthColumn = false;
             bool hasHeightColumn = false;
+            bool hasIconIndexColumn = false;
             
             foreach (DataRow row in groupsSchema.Rows)
             {
@@ -89,6 +128,7 @@ namespace ProgramManagerVC
                 if (columnName == "y") hasYColumn = true;
                 if (columnName == "width") hasWidthColumn = true;
                 if (columnName == "height") hasHeightColumn = true;
+                if (columnName == "icon_index") hasIconIndexColumn = true;
             }
             
             if (!hasXColumn)
@@ -99,9 +139,11 @@ namespace ProgramManagerVC
                 data.SendQueryWithoutReturn("ALTER TABLE groups ADD COLUMN width INTEGER DEFAULT 300");
             if (!hasHeightColumn)
                 data.SendQueryWithoutReturn("ALTER TABLE groups ADD COLUMN height INTEGER DEFAULT 250");
+            if (!hasIconIndexColumn)
+                data.SendQueryWithoutReturn("ALTER TABLE groups ADD COLUMN icon_index INTEGER DEFAULT 0");
             
             DataTable groups = new DataTable();
-            groups = data.SendQueryWithReturn("SELECT * FROM groups");
+            groups = data.SendQueryWithReturn("SELECT * FROM groups ORDER BY icon_index ASC");
             if (groups.Rows.Count > 0)
             {
                 for (int i = 0; i < groups.Rows.Count; i++)
@@ -126,20 +168,27 @@ namespace ProgramManagerVC
                         }
                     }
                     
-                    switch (groups.Rows[i][2].ToString())
+                    int windowStatus = Convert.ToInt32(groups.Rows[i][2]);
+                    switch (windowStatus)
                     {
-                        case "0":
+                        case 0:
                             child.WindowState = FormWindowState.Minimized;
+                            child.Show();
+                            child.Visible = false;
+                            AddMinimizedIcon(child);
                             break;
-                        case "1":
+                        case 1:
                             child.WindowState = FormWindowState.Normal;
+                            child.Show();
                             break;
-                        case "2":
+                        case 2:
                             child.WindowState = FormWindowState.Maximized;
+                            child.Show();
                             break;
                     }
-                    child.Show();
                 }
+                
+                ArrangeMinimizedIcons();
             }
         }
 
@@ -251,18 +300,12 @@ namespace ProgramManagerVC
 
         private void fileToolStripMenuItem_DropDownOpened(object sender, EventArgs e)
         {
-            if (((FormChild)this.ActiveMdiChild) == null)
-            {
-                newItemToolStripMenuItem.Enabled = false;
-                deleteToolStripMenuItem.Enabled = false;
-                propertiesToolStripMenuItem.Enabled = false;
-            }
-            else
-            {
-                newItemToolStripMenuItem.Enabled = true;
-                deleteToolStripMenuItem.Enabled = true;
-                propertiesToolStripMenuItem.Enabled = true;
-            }
+            var child = this.ActiveMdiChild as FormChild;
+            bool hasChild = child != null;
+
+            newItemToolStripMenuItem.Enabled = hasChild;
+            deleteToolStripMenuItem.Enabled = hasChild;
+            propertiesToolStripMenuItem.Enabled = hasChild;
         }
 
         private void settingsToolStripMenuItem_Click(object sender, EventArgs e)
@@ -408,6 +451,172 @@ namespace ProgramManagerVC
                 {
                     data.SendQueryWithoutReturn("INSERT INTO settings (id, key, value) VALUES (NULL, 'window_y', '" + this.Location.Y + "')");
                 }
+            }
+        }
+
+        private void FormMain_MdiChildActivate(object sender, EventArgs e)
+        {
+            EnsureIconHostLayout();
+            ArrangeMinimizedIcons();
+        }
+
+        private void FormMain_Resize(object sender, EventArgs e)
+        {
+            EnsureIconHostLayout();
+            ArrangeMinimizedIcons();
+        }
+
+        public void ArrangeMinimizedIcons()
+        {
+            var host = GetIconHost();
+
+            foreach (MinimizedIcon icon in minimizedIcons.ToList())
+            {
+                if (icon.AssociatedForm == null || icon.AssociatedForm.IsDisposed)
+                {
+                    if (icon.Parent != null) icon.Parent.Controls.Remove(icon);
+                    minimizedIcons.Remove(icon);
+                    icon.Dispose();
+                }
+            }
+
+            int spacing = 8;
+            int iconWidth = 64;
+            int iconHeight = minimizedIcons.Count > 0 ? minimizedIcons[0].Height : 64; // use actual control height
+
+            int availableWidth = Math.Max(0, host.ClientSize.Width - (spacing * 2));
+            int iconsPerRow = Math.Max(1, availableWidth / (iconWidth + spacing));
+
+            // Calculate rows and total height needed
+            int totalIcons = minimizedIcons.Count;
+            int rows = Math.Max(1, (int)Math.Ceiling(totalIcons / (double)iconsPerRow));
+            int totalHeightNeeded = rows * (iconHeight + spacing) + spacing; // including top/bottom spacing
+
+            // Determine starting Y so that all rows are fully visible (no overflow below)
+            int startX = spacing;
+            int startY = host.ClientSize.Height - totalHeightNeeded;
+            if (startY < spacing)
+            {
+                startY = spacing; // clamp to keep spacing at top
+            }
+
+            int currentX = startX;
+            int currentY = startY;
+            int rowCount = 0;
+            int placedInRow = 0;
+
+            for (int i = 0; i < minimizedIcons.Count; i++)
+            {
+                MinimizedIcon icon = minimizedIcons[i];
+                if (icon.AssociatedForm != null && !icon.AssociatedForm.IsDisposed)
+                {
+                    if (icon.Parent != host)
+                    {
+                        icon.Parent?.Controls.Remove(icon);
+                        host.Controls.Add(icon);
+                    }
+
+                    icon.Location = new Point(currentX, currentY);
+                    placedInRow++;
+
+                    if (placedInRow >= iconsPerRow)
+                    {
+                        // move to next row up
+                        rowCount++;
+                        placedInRow = 0;
+                        currentX = startX;
+                        currentY += iconHeight + spacing; // layout from top to bottom within startY block
+                        if (currentY + iconHeight > host.ClientSize.Height - spacing)
+                        {
+                            // prevent partial clipping bottom
+                            currentY = Math.Max(spacing, host.ClientSize.Height - iconHeight - spacing);
+                        }
+                    }
+                    else
+                    {
+                        currentX += iconWidth + spacing;
+                    }
+                }
+            }
+
+            iconHost?.SendToBack();
+        }
+
+        public void AddMinimizedIcon(Form form)
+        {
+            MinimizedIcon existingIcon = minimizedIcons.FirstOrDefault(i => i.AssociatedForm == form);
+            if (existingIcon == null)
+            {
+                int iconIndex = GetIconIndexForForm(form);
+
+                MinimizedIcon icon = new MinimizedIcon(form);
+                icon.Font = new Font("MS Sans Serif", 8F);
+
+                if (iconIndex >= 0 && iconIndex < minimizedIcons.Count)
+                {
+                    minimizedIcons.Insert(iconIndex, icon);
+                }
+                else
+                {
+                    minimizedIcons.Add(icon);
+                }
+
+                var host = GetIconHost();
+                host.Controls.Add(icon);
+                ArrangeMinimizedIcons();
+            }
+        }
+
+        public void RemoveMinimizedIcon(Form form)
+        {
+            MinimizedIcon icon = minimizedIcons.FirstOrDefault(i => i.AssociatedForm == form);
+            if (icon != null)
+            {
+                int index = minimizedIcons.IndexOf(icon);
+                SaveIconIndex(form, index);
+
+                icon.Parent?.Controls.Remove(icon);
+                minimizedIcons.Remove(icon);
+                icon.Dispose();
+                ArrangeMinimizedIcons();
+            }
+        }
+
+        public void SwapIconPositions(MinimizedIcon icon1, MinimizedIcon icon2)
+        {
+            int index1 = minimizedIcons.IndexOf(icon1);
+            int index2 = minimizedIcons.IndexOf(icon2);
+
+            if (index1 >= 0 && index2 >= 0 && index1 != index2)
+            {
+                minimizedIcons[index1] = icon2;
+                minimizedIcons[index2] = icon1;
+
+                SaveIconIndex(icon1.AssociatedForm, index2);
+                SaveIconIndex(icon2.AssociatedForm, index1);
+
+                ArrangeMinimizedIcons();
+            }
+        }
+
+        private int GetIconIndexForForm(Form form)
+        {
+            if (form.Tag == null) return -1;
+            
+            DataTable result = data.SendQueryWithReturn("SELECT icon_index FROM groups WHERE id = " + form.Tag);
+            if (result.Rows.Count > 0 && result.Rows[0][0] != DBNull.Value)
+            {
+                return Convert.ToInt32(result.Rows[0][0]);
+            }
+            
+            return minimizedIcons.Count;
+        }
+
+        private void SaveIconIndex(Form form, int index)
+        {
+            if (form.Tag != null)
+            {
+                data.SendQueryWithoutReturn("UPDATE groups SET icon_index = " + index + " WHERE id = " + form.Tag);
             }
         }
     }

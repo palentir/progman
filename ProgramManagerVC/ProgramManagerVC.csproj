@@ -97,7 +97,12 @@
     <Compile Include="FormSettings.Designer.cs">
       <DependentUpon>FormSettings.cs</DependentUpon>
     </Compile>
-    <Compile Include="MinimizedIcon.cs" />
+    <Compile Include="IconHostForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MinimizedIcon.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="FormAbout.resx">

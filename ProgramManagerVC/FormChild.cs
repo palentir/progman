@@ -13,9 +13,14 @@ namespace ProgramManagerVC
 {
     public partial class FormChild : Form
     {
+        private FormWindowState previousWindowState;
+        private Icon originalIcon;
+        
         public FormChild()
         {
             InitializeComponent();
+            previousWindowState = FormWindowState.Normal;
+            originalIcon = this.Icon;
         }
 
         private void FormChild_FormClosing(object sender, FormClosingEventArgs e)
@@ -39,6 +44,34 @@ namespace ProgramManagerVC
             } else {
                 runAsAdministratorToolStripMenuItem.Image = SystemIcons.Shield.ToBitmap();
             }
+            
+            previousWindowState = this.WindowState;
+            this.Resize += FormChild_Resize;
+        }
+
+        private void FormChild_Resize(object sender, EventArgs e)
+        {
+            if (this.WindowState == FormWindowState.Minimized && previousWindowState != FormWindowState.Minimized)
+            {
+                this.Visible = false;
+                FormMain mainForm = this.MdiParent as FormMain;
+                if (mainForm != null)
+                {
+                    mainForm.AddMinimizedIcon(this);
+                }
+            }
+            else if (this.WindowState != FormWindowState.Minimized && previousWindowState == FormWindowState.Minimized)
+            {
+                this.Visible = true;
+                this.Icon = originalIcon;
+                FormMain mainForm = this.MdiParent as FormMain;
+                if (mainForm != null)
+                {
+                    mainForm.RemoveMinimizedIcon(this);
+                }
+            }
+            
+            previousWindowState = this.WindowState;
         }
 
         private void ListViewMain_MouseDoubleClick(object sender, MouseEventArgs e)
