@@ -101,7 +101,8 @@ namespace ProgramManagerVC
         {
             if (Properties.Settings.Default.UsernameInTitle == 1)
             {
-                Text = $"Program Manager - {Environment.MachineName}/{Environment.UserName}";
+                // Show only username without domain/workgroup
+                Text = $"Program Manager - {Environment.UserName}";
             }
             else
             {

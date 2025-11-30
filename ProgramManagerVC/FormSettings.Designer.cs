@@ -63,7 +63,7 @@
             this.checkBoxUsername.Name = "checkBoxUsername";
             this.checkBoxUsername.Size = new System.Drawing.Size(154, 17);
             this.checkBoxUsername.TabIndex = 2;
-            this.checkBoxUsername.Text = "Show username above title";
+            this.checkBoxUsername.Text = "Show username in title";
             this.checkBoxUsername.UseVisualStyleBackColor = true;
             // 
             // FormSettings
