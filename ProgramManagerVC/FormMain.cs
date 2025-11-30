@@ -16,6 +16,7 @@ namespace ProgramManagerVC
     {
         private List<MinimizedIcon> minimizedIcons = new List<MinimizedIcon>();
         private IconHostForm iconHost;
+        private MinimizedIcon selectedIcon; // track selected icon
 
         // Use full client area for hosting icons (no separate bottom bar)
         private Control GetIconHost()
@@ -549,7 +550,7 @@ namespace ProgramManagerVC
             {
                 int iconIndex = GetIconIndexForForm(form);
 
-                MinimizedIcon icon = new MinimizedIcon(form);
+                MinimizedIcon icon = new MinimizedIcon(form, this); // Pass 'this' (FormMain) to constructor
                 icon.Font = new Font("MS Sans Serif", 8F);
 
                 if (iconIndex >= 0 && iconIndex < minimizedIcons.Count)
@@ -567,6 +568,19 @@ namespace ProgramManagerVC
             }
         }
 
+        public void SetSelectedIcon(MinimizedIcon icon)
+        {
+            if (selectedIcon != null && selectedIcon != icon)
+            {
+                selectedIcon.Selected = false;
+            }
+            selectedIcon = icon;
+            if (selectedIcon != null)
+            {
+                selectedIcon.Selected = true;
+            }
+        }
+
         public void RemoveMinimizedIcon(Form form)
         {
             MinimizedIcon icon = minimizedIcons.FirstOrDefault(i => i.AssociatedForm == form);
@@ -574,6 +588,11 @@ namespace ProgramManagerVC
             {
                 int index = minimizedIcons.IndexOf(icon);
                 SaveIconIndex(form, index);
+
+                if (icon == selectedIcon)
+                {
+                    selectedIcon = null; // clear selection if removed
+                }
 
                 icon.Parent?.Controls.Remove(icon);
                 minimizedIcons.Remove(icon);

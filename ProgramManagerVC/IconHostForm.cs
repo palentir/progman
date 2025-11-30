@@ -13,9 +13,18 @@ namespace ProgramManagerVC
             MaximizeBox = false;
             ShowInTaskbar = false;
             StartPosition = FormStartPosition.Manual;
-            BackColor = SystemColors.Control;
-            // Prevent from stealing activation unnecessarily
-            // but still allow child controls to receive input
+            BackColor = SystemColors.Window;
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            base.OnMouseDown(e);
+            // Clicking on empty background clears selection
+            var main = this.MdiParent as FormMain;
+            if (main != null)
+            {
+                main.SetSelectedIcon(null);
+            }
         }
     }
 }

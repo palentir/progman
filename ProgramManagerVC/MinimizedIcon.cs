@@ -8,26 +8,43 @@ namespace ProgramManagerVC
     public class MinimizedIcon : UserControl
     {
         private PictureBox iconBox;
+        private Panel textPanel;
         private Label titleLabel;
         private Form associatedForm;
+        private FormMain mainForm; // Store reference to FormMain
         private Icon groupsIcon;
         private Point mouseDownPoint;
         private bool isDragging = false;
+        private bool selected = false;
+
+        public bool Selected
+        {
+            get { return selected; }
+            set
+            {
+                if (selected != value)
+                {
+                    selected = value;
+                    ApplySelectionVisual();
+                }
+            }
+        }
         
-        public MinimizedIcon(Form form)
+        public MinimizedIcon(Form form, FormMain main)
         {
             associatedForm = form;
+            mainForm = main; // Store the reference
             InitializeControl();
         }
         
         private void InitializeControl()
         {
-            this.SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserMouse, true);
+            this.SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserMouse | ControlStyles.ResizeRedraw, true);
             
             this.Size = new Size(64, 64);
             this.BackColor = Color.Transparent;
             this.Cursor = Cursors.Hand;
-            this.AllowDrop = true;
+            this.AllowDrop = false;
             
             groupsIcon = GetGroupsIconFromForm();
             
@@ -50,27 +67,74 @@ namespace ProgramManagerVC
             iconBox.MouseDown += Control_MouseDown;
             iconBox.MouseMove += Control_MouseMove;
             iconBox.MouseUp += Control_MouseUp;
-            iconBox.DoubleClick += Control_DoubleClick; // ensure double-click works when clicking icon
+            iconBox.DoubleClick += Control_DoubleClick;
             this.Controls.Add(iconBox);
             
+            // Create a panel to hold the text with solid background
+            textPanel = new Panel();
+            textPanel.Location = new Point(0, 34);
+            textPanel.Size = new Size(64, 30);
+            textPanel.BackColor = SystemColors.Window;
+            textPanel.Cursor = Cursors.Hand;
+            textPanel.MouseDown += Control_MouseDown;
+            textPanel.MouseMove += Control_MouseMove;
+            textPanel.MouseUp += Control_MouseUp;
+            textPanel.DoubleClick += Control_DoubleClick;
+            
+            // Create label inside the panel
             titleLabel = new Label();
-            titleLabel.Location = new Point(0, 34);
-            titleLabel.Size = new Size(64, 30);
+            titleLabel.Dock = DockStyle.Fill;
             titleLabel.TextAlign = ContentAlignment.TopCenter;
             titleLabel.Text = associatedForm.Text;
             titleLabel.Font = new Font("MS Sans Serif", 8F);
-            titleLabel.BackColor = Color.Transparent;
+            titleLabel.BackColor = Color.Transparent; // transparent within panel
+            titleLabel.ForeColor = SystemColors.ControlText;
             titleLabel.Cursor = Cursors.Hand;
             titleLabel.MouseDown += Control_MouseDown;
             titleLabel.MouseMove += Control_MouseMove;
             titleLabel.MouseUp += Control_MouseUp;
-            titleLabel.DoubleClick += Control_DoubleClick; // ensure double-click works when clicking text
-            this.Controls.Add(titleLabel);
+            titleLabel.DoubleClick += Control_DoubleClick;
+            
+            textPanel.Controls.Add(titleLabel);
+            this.Controls.Add(textPanel);
             
             this.MouseDown += Control_MouseDown;
             this.MouseMove += Control_MouseMove;
             this.MouseUp += Control_MouseUp;
-            this.DoubleClick += Control_DoubleClick; // also handle double-click on background
+            this.DoubleClick += Control_DoubleClick;
+        }
+
+        private void ApplySelectionVisual()
+        {
+            if (textPanel == null) return;
+            
+            if (selected)
+            {
+                // Blue background with white text
+                textPanel.BackColor = SystemColors.Highlight;
+                if (titleLabel != null)
+                {
+                    titleLabel.ForeColor = SystemColors.HighlightText;
+                }
+            }
+            else
+            {
+                // Return to normal
+                textPanel.BackColor = SystemColors.Window;
+                if (titleLabel != null)
+                {
+                    titleLabel.ForeColor = SystemColors.ControlText;
+                }
+            }
+            
+            // Force immediate redraw
+            textPanel.Invalidate();
+            textPanel.Update();
+            if (titleLabel != null)
+            {
+                titleLabel.Invalidate();
+                titleLabel.Update();
+            }
         }
         
         private Icon GetGroupsIconFromForm()
@@ -95,6 +159,11 @@ namespace ProgramManagerVC
         {
             if (e.Button == MouseButtons.Left)
             {
+                // Use stored reference instead of FindForm
+                if (mainForm != null)
+                {
+                    mainForm.SetSelectedIcon(this);
+                }
                 mouseDownPoint = e.Location;
                 isDragging = false;
             }
@@ -106,62 +175,21 @@ namespace ProgramManagerVC
 
         private void Control_MouseMove(object sender, MouseEventArgs e)
         {
-            if (e.Button == MouseButtons.Left && !isDragging)
-            {
-                int dx = Math.Abs(e.X - mouseDownPoint.X);
-                int dy = Math.Abs(e.Y - mouseDownPoint.Y);
-                if (dx > 5 || dy > 5)
-                {
-                    isDragging = true;
-                    DoDragDrop(this, DragDropEffects.Move);
-                }
-            }
+            // drag-drop disabled
         }
 
         private void Control_MouseUp(object sender, MouseEventArgs e)
         {
             isDragging = false;
         }
-
-        protected override void OnDragEnter(DragEventArgs drgevent)
-        {
-            base.OnDragEnter(drgevent);
-            if (drgevent.Data.GetDataPresent(typeof(MinimizedIcon)))
-            {
-                drgevent.Effect = DragDropEffects.Move;
-            }
-            else
-            {
-                drgevent.Effect = DragDropEffects.None;
-            }
-        }
-
-        protected override void OnDragDrop(DragEventArgs drgevent)
-        {
-            base.OnDragDrop(drgevent);
-            if (drgevent.Data.GetDataPresent(typeof(MinimizedIcon)))
-            {
-                MinimizedIcon draggedIcon = (MinimizedIcon)drgevent.Data.GetData(typeof(MinimizedIcon));
-                if (draggedIcon != null && draggedIcon != this)
-                {
-                    FormMain mainForm = this.FindForm() as FormMain; // Parent is MDI client; use FindForm
-                    if (mainForm != null)
-                    {
-                        mainForm.SwapIconPositions(draggedIcon, this);
-                    }
-                }
-            }
-        }
         
         private void RestoreWindow()
         {
             if (associatedForm != null && !associatedForm.IsDisposed)
             {
-                FormMain mainForm = this.FindForm() as FormMain;
                 FormChild child = associatedForm as FormChild;
                 if (child != null)
                 {
-                    // Load saved bounds from database (last normal state) before showing
                     if (child.Tag != null)
                     {
                         DataTable dt = ProgramManagerVC.data.SendQueryWithReturn("SELECT x,y,width,height FROM groups WHERE id = " + child.Tag);
@@ -171,7 +199,7 @@ namespace ProgramManagerVC
                             int y = SafeInt(dt.Rows[0][1]);
                             int w = SafeInt(dt.Rows[0][2]);
                             int h = SafeInt(dt.Rows[0][3]);
-                            if (w > 50 && h > 50) // basic sanity
+                            if (w > 50 && h > 50)
                             {
                                 child.StartPosition = FormStartPosition.Manual;
                                 child.Location = new Point(x, y);
@@ -180,19 +208,17 @@ namespace ProgramManagerVC
                         }
                     }
 
-                    // Show and restore
                     if (!child.Visible) child.Visible = true;
                     child.WindowState = FormWindowState.Normal;
                     child.BringToFront();
                     child.Activate();
 
-                    // Update status in DB to normal (1)
                     if (child.Tag != null)
                     {
                         ProgramManagerVC.data.SendQueryWithoutReturn("UPDATE groups SET status=1 WHERE id=" + child.Tag);
                     }
 
-                    // Remove minimized icon explicitly
+                    // Use stored reference instead of FindForm
                     if (mainForm != null)
                     {
                         mainForm.RemoveMinimizedIcon(child);
@@ -222,7 +248,6 @@ namespace ProgramManagerVC
             moveItem.Enabled = false;
             menu.Items.Add(moveItem);
             
-            // Show relative to parent control so the position matches click area
             menu.Show(this, location);
         }
         
