@@ -79,11 +79,13 @@ namespace ProgramManagerVC
                 }
                 else
                 {
+                    SaveActiveWindow();
                     SaveWindowSizeAndPosition();
                 }
             }
             else if (e.CloseReason == CloseReason.ApplicationExitCall)
             {
+                SaveActiveWindow();
                 SaveWindowSizeAndPosition();
                 e.Cancel = false;
             }
@@ -106,6 +108,24 @@ namespace ProgramManagerVC
             else
             {
                 Text = "Program Manager";
+            }
+        }
+
+        private void SaveActiveWindow()
+        {
+            // Save which window was active when app closes
+            var activeChild = this.ActiveMdiChild as FormChild;
+            if (activeChild != null && activeChild.Tag != null)
+            {
+                DataTable existing = data.SendQueryWithReturn("SELECT * FROM settings WHERE key = 'active_window'");
+                if (existing.Rows.Count > 0)
+                {
+                    data.SendQueryWithoutReturn("UPDATE settings SET value = '" + activeChild.Tag + "' WHERE key = 'active_window'");
+                }
+                else
+                {
+                    data.SendQueryWithoutReturn("INSERT INTO settings (id, key, value) VALUES (NULL, 'active_window', '" + activeChild.Tag + "')");
+                }
             }
         }
 
@@ -143,13 +163,23 @@ namespace ProgramManagerVC
             if (!hasIconIndexColumn)
                 data.SendQueryWithoutReturn("ALTER TABLE groups ADD COLUMN icon_index INTEGER DEFAULT 0");
             
+            // Get active window ID from last session
+            string lastActiveWindowId = "";
+            DataTable activeWindowSetting = data.SendQueryWithReturn("SELECT value FROM settings WHERE key = 'active_window'");
+            if (activeWindowSetting.Rows.Count > 0)
+            {
+                lastActiveWindowId = activeWindowSetting.Rows[0][0].ToString();
+            }
+            
             DataTable groups = new DataTable();
             groups = data.SendQueryWithReturn("SELECT * FROM groups ORDER BY icon_index ASC");
+            FormChild windowToActivate = null;
+            
             if (groups.Rows.Count > 0)
             {
                 for (int i = 0; i < groups.Rows.Count; i++)
                 {
-                    Form child = new FormChild();
+                    FormChild child = new FormChild();
                     child.Text = groups.Rows[i][1].ToString();
                     child.Tag = groups.Rows[i][0].ToString();
                     child.MdiParent = this;
@@ -169,29 +199,46 @@ namespace ProgramManagerVC
                         }
                     }
                     
+                    // Track which window should be activated last
+                    if (child.Tag.ToString() == lastActiveWindowId)
+                    {
+                        windowToActivate = child;
+                    }
+                    
                     int windowStatus = Convert.ToInt32(groups.Rows[i][2]);
                     switch (windowStatus)
                     {
                         case 0: // Minimized
-                            child.WindowState = FormWindowState.Minimized;
                             child.Show();
-                            child.Visible = false;
-                            AddMinimizedIcon(child);
+                            child.WindowState = FormWindowState.Minimized;
+                            // Let FormChild_Resize handle the hiding and icon creation
                             break;
                         case 1: // Normal
-                            child.WindowState = FormWindowState.Normal;
                             child.Show();
-                            child.BringToFront();
+                            child.WindowState = FormWindowState.Normal;
                             break;
                         case 2: // Maximized
-                            child.Show(); // Show first
-                            child.WindowState = FormWindowState.Maximized; // Then maximize
-                            child.BringToFront(); // Bring to front
+                            child.Show();
+                            // Small delay to ensure window is fully shown before maximizing
+                            this.BeginInvoke(new Action(() =>
+                            {
+                                child.WindowState = FormWindowState.Maximized;
+                            }));
                             break;
                     }
                 }
                 
                 ArrangeMinimizedIcons();
+                
+                // Activate the previously active window last (after all windows are created)
+                if (windowToActivate != null && windowToActivate.WindowState != FormWindowState.Minimized)
+                {
+                    this.BeginInvoke(new Action(() =>
+                    {
+                        windowToActivate.BringToFront();
+                        windowToActivate.Activate();
+                    }));
+                }
             }
         }
 
