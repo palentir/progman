@@ -79,7 +79,36 @@ namespace ProgramManagerVC
 
         private void ListViewMain_MouseDoubleClick(object sender, MouseEventArgs e)
         {
-            Process.Start(listViewMain.SelectedItems[0].ToolTipText.ToString());
+            if (listViewMain.SelectedItems.Count > 0)
+            {
+                string filePath = listViewMain.SelectedItems[0].ToolTipText.ToString();
+                
+                // Check if file exists before trying to launch it
+                if (System.IO.File.Exists(filePath))
+                {
+                    try
+                    {
+                        Process.Start(filePath);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Could not open file:\n\n" + filePath + 
+                                       "\n\nError: " + ex.Message, 
+                                       "Error Opening File", 
+                                       MessageBoxButtons.OK, 
+                                       MessageBoxIcon.Error);
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("The file does not exist:\n\n" + filePath + 
+                                   "\n\nThe file may have been moved, renamed, or deleted. " +
+                                   "You can edit this item's properties to update the path.", 
+                                   "File Not Found", 
+                                   MessageBoxButtons.OK, 
+                                   MessageBoxIcon.Warning);
+                }
+            }
         }
 
         public void InitializeItems()
@@ -94,7 +123,19 @@ namespace ProgramManagerVC
                 {
                     try
                     {
-                        imageListIcons.Images.Add(Icon.ExtractAssociatedIcon(items.Rows[i][3].ToString()).ToBitmap());
+                        string filePath = items.Rows[i][3].ToString();
+                        
+                        // Try to extract the icon from the file
+                        if (System.IO.File.Exists(filePath))
+                        {
+                            imageListIcons.Images.Add(Icon.ExtractAssociatedIcon(filePath).ToBitmap());
+                        }
+                        else
+                        {
+                            // File doesn't exist - use a default "missing file" icon
+                            imageListIcons.Images.Add(SystemIcons.Warning.ToBitmap());
+                        }
+                        
                         ListViewItem item = new ListViewItem();
                         item.Text = items.Rows[i][1].ToString();
                         item.ImageIndex = i;
@@ -104,11 +145,15 @@ namespace ProgramManagerVC
                     }
                     catch (Exception)
                     {
-                        MessageBox.Show("File \"" + items.Rows[i][3].ToString() + "\" cannot be found. Icon will be deleted.", 
-                            "Error", 
-                            MessageBoxButtons.OK, 
-                            MessageBoxIcon.Error);
-
+                        // Even if there's an exception extracting the icon, still show the item
+                        imageListIcons.Images.Add(SystemIcons.Error.ToBitmap());
+                        
+                        ListViewItem item = new ListViewItem();
+                        item.Text = items.Rows[i][1].ToString();
+                        item.ImageIndex = i;
+                        item.ToolTipText = items.Rows[i][2].ToString();
+                        item.Tag = items.Rows[i][0].ToString();
+                        listViewMain.Items.Add(item);
                     }
                 }
             }
@@ -179,28 +224,110 @@ namespace ProgramManagerVC
 
         private void openToolStripMenuItem_Click(object sender, EventArgs e) 
         {
-            Process.Start(listViewMain.SelectedItems[0].ToolTipText.ToString());
+            if (listViewMain.SelectedItems.Count > 0)
+            {
+                string filePath = listViewMain.SelectedItems[0].ToolTipText.ToString();
+                
+                // Check if file exists before trying to launch it
+                if (System.IO.File.Exists(filePath))
+                {
+                    try
+                    {
+                        Process.Start(filePath);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Could not open file:\n\n" + filePath + 
+                                       "\n\nError: " + ex.Message, 
+                                       "Error Opening File", 
+                                       MessageBoxButtons.OK, 
+                                       MessageBoxIcon.Error);
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("The file does not exist:\n\n" + filePath + 
+                                   "\n\nThe file may have been moved, renamed, or deleted. " +
+                                   "You can edit this item's properties to update the path.", 
+                                   "File Not Found", 
+                                   MessageBoxButtons.OK, 
+                                   MessageBoxIcon.Warning);
+                }
+            }
         }
 
         private void editToolStripMenuItem_Click(object sender, EventArgs e) 
         {
-            Process.Start(new ProcessStartInfo ("explorer.exe", "/select, " + listViewMain.SelectedItems[0].ToolTipText.ToString()));
+            if (listViewMain.SelectedItems.Count > 0)
+            {
+                string filePath = listViewMain.SelectedItems[0].ToolTipText.ToString();
+                
+                // Check if file exists before trying to show it in explorer
+                if (System.IO.File.Exists(filePath))
+                {
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo("explorer.exe", "/select, " + filePath));
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Could not open file location:\n\n" + filePath + 
+                                       "\n\nError: " + ex.Message, 
+                                       "Error", 
+                                       MessageBoxButtons.OK, 
+                                       MessageBoxIcon.Error);
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("The file does not exist:\n\n" + filePath + 
+                                   "\n\nThe file may have been moved, renamed, or deleted. " +
+                                   "You can edit this item's properties to update the path.", 
+                                   "File Not Found", 
+                                   MessageBoxButtons.OK, 
+                                   MessageBoxIcon.Warning);
+                }
+            }
         }
 
         private void runAsAdministratorToolStripMenuItem_Click(object sender, EventArgs e) 
         {
             if (System.Environment.OSVersion.Version.Major >= 6) 
             {
-                try 
+                if (listViewMain.SelectedItems.Count > 0)
                 {
-                    Process proc = new Process();
-                    proc.StartInfo.FileName = listViewMain.SelectedItems[0].ToolTipText.ToString();
-                    proc.StartInfo.UseShellExecute = true;
-                    proc.StartInfo.Verb = "runas";
-                    proc.Start();
+                    string filePath = listViewMain.SelectedItems[0].ToolTipText.ToString();
+                    
+                    // Check if file exists before trying to run it
+                    if (System.IO.File.Exists(filePath))
+                    {
+                        try 
+                        {
+                            Process proc = new Process();
+                            proc.StartInfo.FileName = filePath;
+                            proc.StartInfo.UseShellExecute = true;
+                            proc.StartInfo.Verb = "runas";
+                            proc.Start();
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show("Could not run file as administrator:\n\n" + filePath + 
+                                           "\n\nError: " + ex.Message, 
+                                           "Error", 
+                                           MessageBoxButtons.OK, 
+                                           MessageBoxIcon.Error);
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show("The file does not exist:\n\n" + filePath + 
+                                       "\n\nThe file may have been moved, renamed, or deleted. " +
+                                       "You can edit this item's properties to update the path.", 
+                                       "File Not Found", 
+                                       MessageBoxButtons.OK, 
+                                       MessageBoxIcon.Warning);
+                    }
                 }
-                catch 
-                { }
             }
         }
 

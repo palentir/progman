@@ -55,13 +55,14 @@
             this.checkBoxShell.TabIndex = 1;
             this.checkBoxShell.Text = "Setup as default shell";
             this.checkBoxShell.UseVisualStyleBackColor = true;
+            this.checkBoxShell.CheckedChanged += new System.EventHandler(this.checkBoxShell_CheckedChanged);
             // 
             // checkBoxUsername
             // 
             this.checkBoxUsername.AutoSize = true;
             this.checkBoxUsername.Location = new System.Drawing.Point(12, 35);
             this.checkBoxUsername.Name = "checkBoxUsername";
-            this.checkBoxUsername.Size = new System.Drawing.Size(154, 17);
+            this.checkBoxUsername.Size = new System.Drawing.Size(132, 17);
             this.checkBoxUsername.TabIndex = 2;
             this.checkBoxUsername.Text = "Show username in title";
             this.checkBoxUsername.UseVisualStyleBackColor = true;

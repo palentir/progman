@@ -41,6 +41,18 @@ namespace ProgramManagerVC
 
         private void ButtonOK_Click(object sender, EventArgs e)
         {
+            // Validate that the path exists
+            if (!System.IO.File.Exists(textBoxPath.Text))
+            {
+                MessageBox.Show("The specified file does not exist:\n\n" + textBoxPath.Text + 
+                               "\n\nPlease check the path and try again.", 
+                               "File Not Found", 
+                               MessageBoxButtons.OK, 
+                               MessageBoxIcon.Warning);
+                return; // Stay on the dialog, don't close
+            }
+
+            // Validation passed - save the item
             if (id_item == "0")
             {
                 data.SendQueryWithoutReturn("INSERT INTO \"items\"(id,name,path,icon,groups) VALUES (NULL,'" + textBoxName.Text + "','" + textBoxPath.Text + "','" + textBoxPath.Text + "','" + id_group + "');");
@@ -49,6 +61,9 @@ namespace ProgramManagerVC
             {
                 data.SendQueryWithoutReturn("UPDATE items SET name = \"" + textBoxName.Text + "\", path = \"" + textBoxPath.Text + "\", icon = \"" + textBoxPath.Text + "\" WHERE id = " + id_item);
             }
+            
+            // Only set DialogResult and close when everything is successful
+            this.DialogResult = DialogResult.OK;
             this.Close();
         }
 

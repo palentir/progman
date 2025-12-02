@@ -52,7 +52,6 @@
             // buttonOK
             // 
             this.buttonOK.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.buttonOK.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.buttonOK.Enabled = false;
             this.buttonOK.Location = new System.Drawing.Point(260, 12);
             this.buttonOK.Name = "buttonOK";
@@ -96,7 +95,6 @@
             this.textBoxPath.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.FileSystem;
             this.textBoxPath.Location = new System.Drawing.Point(56, 43);
             this.textBoxPath.Name = "textBoxPath";
-            this.textBoxPath.ReadOnly = true;
             this.textBoxPath.Size = new System.Drawing.Size(155, 20);
             this.textBoxPath.TabIndex = 4;
             this.textBoxPath.TextChanged += new System.EventHandler(this.TextBoxPath_TextChanged);

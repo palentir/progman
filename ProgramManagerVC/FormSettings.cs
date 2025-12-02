@@ -26,5 +26,10 @@ namespace ProgramManagerVC
         {
             checkBoxUsername.Checked = Properties.Settings.Default.UsernameInTitle == 1 ? true : false;
         }
+
+        private void checkBoxShell_CheckedChanged(object sender, EventArgs e)
+        {
+
+        }
     }
 }
