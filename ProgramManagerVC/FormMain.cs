@@ -47,7 +47,6 @@ namespace ProgramManagerVC
                 // Ensure full fill and location within MDI client coordinates
                 iconHost.Dock = DockStyle.Fill;
                 iconHost.Location = new Point(0, 0);
-                iconHost.SendToBack();
             }
         }
 
@@ -173,19 +172,21 @@ namespace ProgramManagerVC
                     int windowStatus = Convert.ToInt32(groups.Rows[i][2]);
                     switch (windowStatus)
                     {
-                        case 0:
+                        case 0: // Minimized
                             child.WindowState = FormWindowState.Minimized;
                             child.Show();
                             child.Visible = false;
                             AddMinimizedIcon(child);
                             break;
-                        case 1:
+                        case 1: // Normal
                             child.WindowState = FormWindowState.Normal;
                             child.Show();
+                            child.BringToFront();
                             break;
-                        case 2:
-                            child.WindowState = FormWindowState.Maximized;
-                            child.Show();
+                        case 2: // Maximized
+                            child.Show(); // Show first
+                            child.WindowState = FormWindowState.Maximized; // Then maximize
+                            child.BringToFront(); // Bring to front
                             break;
                     }
                 }
@@ -343,6 +344,48 @@ namespace ProgramManagerVC
             }
         }
 
+        private void windowsToolStripMenuItem_DropDownOpening(object sender, EventArgs e)
+        {
+            windowsToolStripMenuItem.DropDownItems.Clear();
+            windowsToolStripMenuItem.DropDownItems.Add(tileVerticalToolStripMenuItem);
+            windowsToolStripMenuItem.DropDownItems.Add(tileHorizontalToolStripMenuItem);
+            windowsToolStripMenuItem.DropDownItems.Add(cascadeToolStripMenuItem);
+
+            // Get only FormChild windows (exclude IconHostForm)
+            var childWindows = this.MdiChildren.OfType<FormChild>().ToList();
+            
+            if (childWindows.Count > 0)
+            {
+                windowsToolStripMenuItem.DropDownItems.Add(new ToolStripSeparator());
+            }
+
+            // Add numbered menu items for each window
+            for (int i = 0; i < childWindows.Count; i++)
+            {
+                FormChild child = childWindows[i];
+                int windowNumber = i + 1;
+                
+                ToolStripMenuItem item = new ToolStripMenuItem($"{windowNumber} {child.Text}", null, (s, a) =>
+                {
+                    child.BringToFront();
+                    child.Activate();
+                });
+                
+                // Add checkmark to currently active window (only if not minimized)
+                item.Checked = (child == this.ActiveMdiChild && child.WindowState != FormWindowState.Minimized);
+                
+                windowsToolStripMenuItem.DropDownItems.Add(item);
+            }
+        }
+
+        private int SafeInt(object o)
+        {
+            int v;
+            if (o == null || o == DBNull.Value) return 0;
+            if (!int.TryParse(o.ToString(), out v)) return 0;
+            return v;
+        }
+        
         private void LoadWindowSizeAndPosition()
         {
             DataTable settings = data.SendQueryWithReturn("SELECT * FROM settings WHERE key IN ('window_width', 'window_height', 'window_x', 'window_y')");
@@ -458,8 +501,11 @@ namespace ProgramManagerVC
 
         private void FormMain_MdiChildActivate(object sender, EventArgs e)
         {
-            EnsureIconHostLayout();
-            ArrangeMinimizedIcons();
+            // Only send IconHostForm to back when it gets activated (clicked)
+            if (this.ActiveMdiChild is IconHostForm)
+            {
+                this.ActiveMdiChild.SendToBack();
+            }
         }
 
         private void FormMain_Resize(object sender, EventArgs e)
@@ -540,8 +586,6 @@ namespace ProgramManagerVC
                     }
                 }
             }
-
-            iconHost?.SendToBack();
         }
 
         public void AddMinimizedIcon(Form form)

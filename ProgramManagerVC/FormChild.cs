@@ -27,10 +27,13 @@ namespace ProgramManagerVC
         {
             if (e.CloseReason == CloseReason.MdiFormClosing)
             {
+                // Main form is closing - save window state before closing
+                SaveWindowState();
                 e.Cancel = false;
             }
             else
             {
+                // User clicked X button - minimize instead of close
                 this.WindowState = FormWindowState.Minimized;
                 e.Cancel = true;
             }
