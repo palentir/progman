@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             this.button1 = new System.Windows.Forms.Button();
             this.buttonOK = new System.Windows.Forms.Button();
             this.label1 = new System.Windows.Forms.Label();
@@ -37,11 +38,13 @@
             this.buttonBrowser = new System.Windows.Forms.Button();
             this.openFileDialogPath = new System.Windows.Forms.OpenFileDialog();
             this.label3 = new System.Windows.Forms.Label();
+            this.label4 = new System.Windows.Forms.Label();
             this.textBoxIconPath = new System.Windows.Forms.TextBox();
+            this.textBoxParameters = new System.Windows.Forms.TextBox();
             this.buttonIconBrowser = new System.Windows.Forms.Button();
             this.openFileDialogIcon = new System.Windows.Forms.OpenFileDialog();
             this.listViewIcons = new System.Windows.Forms.ListView();
-            this.imageListIcons = new System.Windows.Forms.ImageList();
+            this.imageListIcons = new System.Windows.Forms.ImageList(this.components);
             this.pictureBoxPreview = new System.Windows.Forms.PictureBox();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBoxPreview)).BeginInit();
             this.SuspendLayout();
@@ -50,7 +53,7 @@
             // 
             this.button1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.button1.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.button1.Location = new System.Drawing.Point(260, 145);
+            this.button1.Location = new System.Drawing.Point(375, 169);
             this.button1.Name = "button1";
             this.button1.Size = new System.Drawing.Size(75, 23);
             this.button1.TabIndex = 0;
@@ -61,7 +64,7 @@
             // 
             this.buttonOK.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.buttonOK.Enabled = false;
-            this.buttonOK.Location = new System.Drawing.Point(260, 116);
+            this.buttonOK.Location = new System.Drawing.Point(375, 140);
             this.buttonOK.Name = "buttonOK";
             this.buttonOK.Size = new System.Drawing.Size(75, 23);
             this.buttonOK.TabIndex = 1;
@@ -72,27 +75,29 @@
             // label1
             // 
             this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(12, 17);
+            this.label1.Location = new System.Drawing.Point(39, 17);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(38, 13);
             this.label1.TabIndex = 2;
             this.label1.Text = "Name:";
+            this.label1.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             // 
             // label2
             // 
             this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(12, 46);
+            this.label2.Location = new System.Drawing.Point(18, 43);
             this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(32, 13);
+            this.label2.Size = new System.Drawing.Size(59, 13);
             this.label2.TabIndex = 3;
-            this.label2.Text = "Path:";
+            this.label2.Text = "Exec Path:";
+            this.label2.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             // 
             // textBoxName
             // 
             this.textBoxName.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.SuggestAppend;
-            this.textBoxName.Location = new System.Drawing.Point(56, 14);
+            this.textBoxName.Location = new System.Drawing.Point(83, 14);
             this.textBoxName.Name = "textBoxName";
-            this.textBoxName.Size = new System.Drawing.Size(193, 20);
+            this.textBoxName.Size = new System.Drawing.Size(283, 20);
             this.textBoxName.TabIndex = 4;
             this.textBoxName.TextChanged += new System.EventHandler(this.TextBoxName_TextChanged);
             // 
@@ -101,9 +106,9 @@
             this.textBoxPath.AllowDrop = true;
             this.textBoxPath.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.SuggestAppend;
             this.textBoxPath.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.FileSystem;
-            this.textBoxPath.Location = new System.Drawing.Point(56, 43);
+            this.textBoxPath.Location = new System.Drawing.Point(83, 40);
             this.textBoxPath.Name = "textBoxPath";
-            this.textBoxPath.Size = new System.Drawing.Size(155, 20);
+            this.textBoxPath.Size = new System.Drawing.Size(244, 20);
             this.textBoxPath.TabIndex = 5;
             this.textBoxPath.TextChanged += new System.EventHandler(this.TextBoxPath_TextChanged);
             this.textBoxPath.DragDrop += new System.Windows.Forms.DragEventHandler(this.textBoxPath_DragDrop);
@@ -111,9 +116,9 @@
             // 
             // buttonBrowser
             // 
-            this.buttonBrowser.Location = new System.Drawing.Point(217, 43);
+            this.buttonBrowser.Location = new System.Drawing.Point(333, 40);
             this.buttonBrowser.Name = "buttonBrowser";
-            this.buttonBrowser.Size = new System.Drawing.Size(32, 20);
+            this.buttonBrowser.Size = new System.Drawing.Size(33, 20);
             this.buttonBrowser.TabIndex = 6;
             this.buttonBrowser.Text = "...";
             this.buttonBrowser.UseVisualStyleBackColor = true;
@@ -127,30 +132,49 @@
             // label3
             // 
             this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(12, 75);
+            this.label3.Location = new System.Drawing.Point(21, 98);
             this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(31, 13);
+            this.label3.Size = new System.Drawing.Size(56, 13);
             this.label3.TabIndex = 7;
-            this.label3.Text = "Icon:";
+            this.label3.Text = "Icon Path:";
+            this.label3.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
+            // label4
+            // 
+            this.label4.AutoSize = true;
+            this.label4.Location = new System.Drawing.Point(14, 72);
+            this.label4.Name = "label4";
+            this.label4.Size = new System.Drawing.Size(63, 13);
+            this.label4.TabIndex = 12;
+            this.label4.Text = "Parameters:";
+            this.label4.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             // 
             // textBoxIconPath
             // 
             this.textBoxIconPath.AllowDrop = true;
             this.textBoxIconPath.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.SuggestAppend;
             this.textBoxIconPath.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.FileSystem;
-            this.textBoxIconPath.Location = new System.Drawing.Point(56, 72);
+            this.textBoxIconPath.Location = new System.Drawing.Point(83, 95);
             this.textBoxIconPath.Name = "textBoxIconPath";
-            this.textBoxIconPath.Size = new System.Drawing.Size(155, 20);
+            this.textBoxIconPath.Size = new System.Drawing.Size(283, 20);
             this.textBoxIconPath.TabIndex = 8;
             this.textBoxIconPath.TextChanged += new System.EventHandler(this.TextBoxIconPath_TextChanged);
             this.textBoxIconPath.DragDrop += new System.Windows.Forms.DragEventHandler(this.textBoxIconPath_DragDrop);
             this.textBoxIconPath.DragOver += new System.Windows.Forms.DragEventHandler(this.textBoxIconPath_DragOver);
             // 
+            // textBoxParameters
+            // 
+            this.textBoxParameters.Location = new System.Drawing.Point(83, 69);
+            this.textBoxParameters.Name = "textBoxParameters";
+            this.textBoxParameters.Size = new System.Drawing.Size(244, 20);
+            this.textBoxParameters.TabIndex = 11;
+            this.textBoxParameters.TextChanged += new System.EventHandler(this.TextBoxPath_TextChanged);
+            // 
             // buttonIconBrowser
             // 
-            this.buttonIconBrowser.Location = new System.Drawing.Point(217, 72);
+            this.buttonIconBrowser.Location = new System.Drawing.Point(332, 69);
             this.buttonIconBrowser.Name = "buttonIconBrowser";
-            this.buttonIconBrowser.Size = new System.Drawing.Size(32, 20);
+            this.buttonIconBrowser.Size = new System.Drawing.Size(34, 20);
             this.buttonIconBrowser.TabIndex = 9;
             this.buttonIconBrowser.Text = "...";
             this.buttonIconBrowser.UseVisualStyleBackColor = true;
@@ -158,33 +182,33 @@
             // 
             // openFileDialogIcon
             // 
-            this.openFileDialogIcon.Filter = "All Icon Sources (*.ico;*.exe;*.dll)|*.ico;*.exe;*.dll|Icon Files (*.ico)|*.ico|Executable Files (*.exe)|*.exe|Library Files (*.dll)|*.dll|All Files (*.*)|*.*";
+            this.openFileDialogIcon.Filter = "All Icon Sources (*.ico;*.exe;*.dll)|*.ico;*.exe;*.dll|Icon Files (*.ico)|*.ico|E" +
+    "xecutable Files (*.exe)|*.exe|Library Files (*.dll)|*.dll|All Files (*.*)|*.*";
             this.openFileDialogIcon.Title = "Select Icon File";
             // 
             // listViewIcons
             // 
-            this.listViewIcons.Location = new System.Drawing.Point(56, 98);
-            this.listViewIcons.MultiSelect = false;
-            this.listViewIcons.Name = "listViewIcons";
-            this.listViewIcons.Size = new System.Drawing.Size(193, 70);
-            this.listViewIcons.LargeImageList = this.imageListIcons;
-            this.listViewIcons.TabIndex = 10;
-            this.listViewIcons.UseCompatibleStateImageBehavior = false;
-            this.listViewIcons.View = System.Windows.Forms.View.LargeIcon;
-            this.listViewIcons.Scrollable = true;
             this.listViewIcons.AutoArrange = false;
             this.listViewIcons.HideSelection = false;
+            this.listViewIcons.LargeImageList = this.imageListIcons;
+            this.listViewIcons.Location = new System.Drawing.Point(83, 121);
+            this.listViewIcons.MultiSelect = false;
+            this.listViewIcons.Name = "listViewIcons";
+            this.listViewIcons.Size = new System.Drawing.Size(284, 70);
+            this.listViewIcons.TabIndex = 10;
+            this.listViewIcons.UseCompatibleStateImageBehavior = false;
             this.listViewIcons.SelectedIndexChanged += new System.EventHandler(this.ListViewIcons_SelectedIndexChanged);
             // 
             // imageListIcons
             // 
             this.imageListIcons.ColorDepth = System.Windows.Forms.ColorDepth.Depth32Bit;
             this.imageListIcons.ImageSize = new System.Drawing.Size(32, 32);
+            this.imageListIcons.TransparentColor = System.Drawing.Color.Transparent;
             // 
             // pictureBoxPreview
             // 
             this.pictureBoxPreview.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.pictureBoxPreview.Location = new System.Drawing.Point(260, 14);
+            this.pictureBoxPreview.Location = new System.Drawing.Point(372, 14);
             this.pictureBoxPreview.Name = "pictureBoxPreview";
             this.pictureBoxPreview.Size = new System.Drawing.Size(48, 48);
             this.pictureBoxPreview.SizeMode = System.Windows.Forms.PictureBoxSizeMode.CenterImage;
@@ -195,9 +219,11 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(347, 180);
+            this.ClientSize = new System.Drawing.Size(462, 203);
             this.Controls.Add(this.pictureBoxPreview);
             this.Controls.Add(this.listViewIcons);
+            this.Controls.Add(this.textBoxParameters);
+            this.Controls.Add(this.label4);
             this.Controls.Add(this.buttonIconBrowser);
             this.Controls.Add(this.textBoxIconPath);
             this.Controls.Add(this.label3);
@@ -234,7 +260,9 @@
         private System.Windows.Forms.Button buttonBrowser;
         private System.Windows.Forms.OpenFileDialog openFileDialogPath;
         private System.Windows.Forms.Label label3;
+        private System.Windows.Forms.Label label4;
         private System.Windows.Forms.TextBox textBoxIconPath;
+        private System.Windows.Forms.TextBox textBoxParameters;
         private System.Windows.Forms.Button buttonIconBrowser;
         private System.Windows.Forms.OpenFileDialog openFileDialogIcon;
         private System.Windows.Forms.ListView listViewIcons;

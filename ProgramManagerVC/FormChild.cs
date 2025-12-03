@@ -82,14 +82,30 @@ namespace ProgramManagerVC
         {
             if (listViewMain.SelectedItems.Count > 0)
             {
-                string filePath = listViewMain.SelectedItems[0].ToolTipText.ToString();
+                string id = listViewMain.SelectedItems[0].Tag.ToString();
+                DataTable dt = data.SendQueryWithReturn("SELECT path, parameters FROM items WHERE id = " + id);
+                if (dt.Rows.Count == 0) return;
+                string filePath = dt.Rows[0][0].ToString();
+                string parameters = "";
+                if (dt.Columns.Count > 1) parameters = dt.Rows[0][1].ToString();
                 
                 // Check if file exists before trying to launch it
                 if (System.IO.File.Exists(filePath))
                 {
                     try
                     {
-                        Process.Start(filePath);
+                        if (string.IsNullOrEmpty(parameters))
+                        {
+                            Process.Start(filePath);
+                        }
+                        else
+                        {
+                            var psi = new ProcessStartInfo();
+                            psi.FileName = filePath;
+                            psi.Arguments = parameters;
+                            psi.UseShellExecute = true;
+                            Process.Start(psi);
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -294,69 +310,88 @@ namespace ProgramManagerVC
         {
             if (listViewMain.SelectedItems.Count > 0)
             {
-                string filePath = listViewMain.SelectedItems[0].ToolTipText.ToString();
+                string id = listViewMain.SelectedItems[0].Tag.ToString();
+                DataTable dt = data.SendQueryWithReturn("SELECT path, parameters FROM items WHERE id = " + id);
+                if (dt.Rows.Count == 0) return;
+                string filePath = dt.Rows[0][0].ToString();
+                string parameters = "";
+                if (dt.Columns.Count > 1) parameters = dt.Rows[0][1].ToString();
                 
-                // Check if file exists before trying to launch it
-                if (System.IO.File.Exists(filePath))
-                {
-                    try
-                    {
-                        Process.Start(filePath);
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show("Could not open file:\n\n" + filePath + 
-                                       "\n\nError: " + ex.Message, 
-                                       "Error Opening File", 
-                                       MessageBoxButtons.OK, 
-                                       MessageBoxIcon.Error);
-                    }
-                }
-                else
-                {
-                    MessageBox.Show("The file does not exist:\n\n" + filePath + 
-                                   "\n\nThe file may have been moved, renamed, or deleted. " +
-                                   "You can edit this item's properties to update the path.", 
-                                   "File Not Found", 
-                                   MessageBoxButtons.OK, 
-                                   MessageBoxIcon.Warning);
-                }
-            }
-        }
+                 // Check if file exists before trying to launch it
+                 if (System.IO.File.Exists(filePath))
+                 {
+                     try
+                     {
+                        if (string.IsNullOrEmpty(parameters))
+                        {
+                            Process.Start(filePath);
+                        }
+                        else
+                        {
+                            var psi = new ProcessStartInfo();
+                            psi.FileName = filePath;
+                            psi.Arguments = parameters;
+                            psi.UseShellExecute = true;
+                            Process.Start(psi);
+                        }
+                     }
+                     catch (Exception ex)
+                     {
+                         MessageBox.Show("Could not open file:\n\n" + filePath + 
+                                        "\n\nError: " + ex.Message, 
+                                        "Error Opening File", 
+                                        MessageBoxButtons.OK, 
+                                        MessageBoxIcon.Error);
+                     }
+                 }
+                 else
+                 {
+                     MessageBox.Show("The file does not exist:\n\n" + filePath + 
+                                    "\n\nThe file may have been moved, renamed, or deleted. " +
+                                    "You can edit this item's properties to update the path.", 
+                                    "File Not Found", 
+                                    MessageBoxButtons.OK, 
+                                    MessageBoxIcon.Warning);
+                 }
+             }
+         }
 
         private void editToolStripMenuItem_Click(object sender, EventArgs e) 
         {
             if (listViewMain.SelectedItems.Count > 0)
             {
-                string filePath = listViewMain.SelectedItems[0].ToolTipText.ToString();
-                
-                // Check if file exists before trying to show it in explorer
-                if (System.IO.File.Exists(filePath))
-                {
-                    try
-                    {
-                        Process.Start(new ProcessStartInfo("explorer.exe", "/select, " + filePath));
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show("Could not open file location:\n\n" + filePath + 
-                                       "\n\nError: " + ex.Message, 
-                                       "Error", 
-                                       MessageBoxButtons.OK, 
-                                       MessageBoxIcon.Error);
-                    }
-                }
-                else
-                {
-                    MessageBox.Show("The file does not exist:\n\n" + filePath + 
-                                   "\n\nThe file may have been moved, renamed, or deleted. " +
-                                   "You can edit this item's properties to update the path.", 
-                                   "File Not Found", 
-                                   MessageBoxButtons.OK, 
-                                   MessageBoxIcon.Warning);
-                }
-            }
-        }
+                string id = listViewMain.SelectedItems[0].Tag.ToString();
+                DataTable dt = data.SendQueryWithReturn("SELECT path FROM items WHERE id = " + id);
+                if (dt.Rows.Count == 0) return;
+                string filePath = dt.Rows[0][0].ToString();
+                 
+                 // Check if file exists before trying to show it in explorer
+                 if (System.IO.File.Exists(filePath))
+                 {
+                     try
+                     {
+                        Process.Start(new ProcessStartInfo("explorer.exe", "/select, \"" + filePath + "\""));
+                     }
+                     catch (Exception ex)
+                     {
+                         MessageBox.Show("Could not open file location:\n\n" + filePath + 
+                                        "\n\nError: " + ex.Message, 
+                                        "Error", 
+                                        MessageBoxButtons.OK, 
+                                        MessageBoxIcon.Error);
+                     }
+                 }
+                 else
+                 {
+                     MessageBox.Show("The file does not exist:\n\n" + filePath + 
+                                    "\n\nThe file may have been moved, renamed, or deleted. " +
+                                    "You can edit this item's properties to update the path.", 
+                                    "File Not Found", 
+                                    MessageBoxButtons.OK, 
+                                    MessageBoxIcon.Warning);
+                 }
+             }
+         }
 
         private void runAsAdministratorToolStripMenuItem_Click(object sender, EventArgs e) 
         {
@@ -364,40 +399,46 @@ namespace ProgramManagerVC
             {
                 if (listViewMain.SelectedItems.Count > 0)
                 {
-                    string filePath = listViewMain.SelectedItems[0].ToolTipText.ToString();
-                    
-                    // Check if file exists before trying to run it
-                    if (System.IO.File.Exists(filePath))
-                    {
-                        try 
-                        {
+                    string id = listViewMain.SelectedItems[0].Tag.ToString();
+                    DataTable dt = data.SendQueryWithReturn("SELECT path, parameters FROM items WHERE id = " + id);
+                    if (dt.Rows.Count == 0) return;
+                    string filePath = dt.Rows[0][0].ToString();
+                    string parameters = "";
+                    if (dt.Columns.Count > 1) parameters = dt.Rows[0][1].ToString();
+                     
+                     // Check if file exists before trying to run it
+                     if (System.IO.File.Exists(filePath))
+                     {
+                         try 
+                         {
                             Process proc = new Process();
                             proc.StartInfo.FileName = filePath;
+                            proc.StartInfo.Arguments = parameters;
                             proc.StartInfo.UseShellExecute = true;
                             proc.StartInfo.Verb = "runas";
                             proc.Start();
-                        }
-                        catch (Exception ex)
-                        {
-                            MessageBox.Show("Could not run file as administrator:\n\n" + filePath + 
-                                           "\n\nError: " + ex.Message, 
-                                           "Error", 
-                                           MessageBoxButtons.OK, 
-                                           MessageBoxIcon.Error);
-                        }
-                    }
-                    else
-                    {
-                        MessageBox.Show("The file does not exist:\n\n" + filePath + 
-                                       "\n\nThe file may have been moved, renamed, or deleted. " +
-                                       "You can edit this item's properties to update the path.", 
-                                       "File Not Found", 
-                                       MessageBoxButtons.OK, 
-                                       MessageBoxIcon.Warning);
-                    }
-                }
-            }
-        }
+                         }
+                         catch (Exception ex)
+                         {
+                             MessageBox.Show("Could not run file as administrator:\n\n" + filePath + 
+                                            "\n\nError: " + ex.Message, 
+                                            "Error", 
+                                            MessageBoxButtons.OK, 
+                                            MessageBoxIcon.Error);
+                         }
+                     }
+                     else
+                     {
+                         MessageBox.Show("The file does not exist:\n\n" + filePath + 
+                                        "\n\nThe file may have been moved, renamed, or deleted. " +
+                                        "You can edit this item's properties to update the path.", 
+                                        "File Not Found", 
+                                        MessageBoxButtons.OK, 
+                                        MessageBoxIcon.Warning);
+                     }
+                 }
+             }
+         }
 
         private void deleteToolStripMenuItem_Click(object sender, EventArgs e) 
         {

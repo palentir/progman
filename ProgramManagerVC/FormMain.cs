@@ -135,6 +135,16 @@ namespace ProgramManagerVC
             data.SendQueryWithoutReturn("CREATE TABLE IF NOT EXISTS \"items\" (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, path TEXT, icon TEXT, groups INTEGER)");
             data.SendQueryWithoutReturn("CREATE TABLE IF NOT EXISTS \"settings\" (id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT, value TEXT)");
             
+            // Ensure 'parameters' column exists on items table (added in newer versions)
+            DataTable itemsSchema = data.SendQueryWithReturn("PRAGMA table_info(items)");
+            bool hasParametersColumn = false;
+            foreach (DataRow row in itemsSchema.Rows)
+            {
+                if (row["name"].ToString() == "parameters") hasParametersColumn = true;
+            }
+            if (!hasParametersColumn)
+                data.SendQueryWithoutReturn("ALTER TABLE items ADD COLUMN parameters TEXT DEFAULT ''");
+
             DataTable groupsSchema = data.SendQueryWithReturn("PRAGMA table_info(groups)");
             bool hasXColumn = false;
             bool hasYColumn = false;

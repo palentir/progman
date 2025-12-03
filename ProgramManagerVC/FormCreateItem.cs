@@ -17,6 +17,7 @@ namespace ProgramManagerVC
         string id_item;
         private string selectedIconPath;
         private int selectedIconIndex;
+        private string parameters;
 
         public FormCreateItem(string id, string iditem = "0")
         {
@@ -25,6 +26,7 @@ namespace ProgramManagerVC
             id_item = iditem;
             selectedIconPath = "";
             selectedIconIndex = 0;
+            parameters = "";
         }
 
         private void ButtonBrowser_Click(object sender, EventArgs e)
@@ -60,6 +62,22 @@ namespace ProgramManagerVC
                 dTable = data.SendQueryWithReturn("SELECT * FROM items WHERE id = " + id_item);
                 textBoxName.Text = dTable.Rows[0][1].ToString();
                 textBoxPath.Text = dTable.Rows[0][2].ToString();
+                // Read parameters column if available
+                if (dTable.Columns.Contains("parameters"))
+                {
+                    try { parameters = dTable.Rows[0]["parameters"].ToString(); } catch { parameters = ""; }
+                }
+                else
+                {
+                    parameters = "";
+                }
+
+                // Set parameters textbox if present
+                if (this.Controls.Find("textBoxParameters", true).Length > 0)
+                {
+                    var tb = this.Controls.Find("textBoxParameters", true)[0] as TextBox;
+                    if (tb != null) tb.Text = parameters;
+                }
                 
                 // Load existing icon info
                 string iconInfo = dTable.Rows[0][3].ToString();
@@ -359,21 +377,28 @@ namespace ProgramManagerVC
                 selectedIconIndex = 0;
             }
 
+            // Read parameters textbox if available
+            if (this.Controls.Find("textBoxParameters", true).Length > 0)
+            {
+                var tb = this.Controls.Find("textBoxParameters", true)[0] as TextBox;
+                if (tb != null) parameters = tb.Text;
+            }
+
             try
             {
                 // Validation passed - save the item
                 if (id_item == "0")
                 {
-                    data.SendQueryWithoutReturn("INSERT INTO \"items\"(id,name,path,icon,groups) VALUES (NULL,'" + 
+                    data.SendQueryWithoutReturn("INSERT INTO \"items\"(id,name,path,icon,groups,parameters) VALUES (NULL,'" + 
                         textBoxName.Text.Replace("'", "''") + "','" + 
                         textBoxPath.Text.Replace("'", "''") + "','" + 
-                        iconInfo.Replace("'", "''") + "','" + id_group + "');");
+                        iconInfo.Replace("'", "''") + "','" + id_group + "','" + parameters.Replace("'", "''") + "');");
                 }
                 else
                 {
                     data.SendQueryWithoutReturn("UPDATE items SET name = \"" + textBoxName.Text.Replace("\"", "\"\"") + 
                         "\", path = \"" + textBoxPath.Text.Replace("\"", "\"\"") + 
-                        "\", icon = \"" + iconInfo.Replace("\"", "\"\"") + "\" WHERE id = " + id_item);
+                        "\", icon = \"" + iconInfo.Replace("\"", "\"\"") + "\", parameters = \"" + parameters.Replace("\"", "\"\"") + "\" WHERE id = " + id_item);
                 }
                 
                 // Only set DialogResult and close when everything is successful
