@@ -291,16 +291,23 @@ namespace ProgramManagerVC
         {
             if (e.Button == MouseButtons.Right) 
             {
-                if (listViewMain.FocusedItem == null)
+                ListViewItem itemAtPoint = listViewMain.GetItemAt(e.X, e.Y);
+                
+                if (itemAtPoint != null)
                 {
-                    ListMenu.Show(Cursor.Position);
-                }
-                else if (listViewMain.FocusedItem.Bounds.Contains(e.Location)) 
-                {
+                    // Right-clicked on an item - show item context menu
+                    if (!itemAtPoint.Selected)
+                    {
+                        listViewMain.SelectedItems.Clear();
+                        itemAtPoint.Selected = true;
+                        itemAtPoint.Focused = true;
+                    }
                     FileMenu.Show(Cursor.Position);
-                } 
-                else 
+                }
+                else
                 {
+                    // Right-clicked on empty space - show group context menu
+                    listViewMain.SelectedItems.Clear();
                     ListMenu.Show(Cursor.Position);
                 }
             }

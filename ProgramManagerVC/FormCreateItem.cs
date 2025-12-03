@@ -35,11 +35,11 @@ namespace ProgramManagerVC
             {
                 textBoxPath.Text = openFileDialogPath.FileName;
                 
-                // Auto-populate icon path if not already set
+                // Auto-populate icon from path if icon path is empty
                 if (string.IsNullOrEmpty(textBoxIconPath.Text))
                 {
-                    selectedIconIndex = 0; // Default to first icon for new items
-                    textBoxIconPath.Text = openFileDialogPath.FileName;
+                    selectedIconIndex = 0;
+                    selectedIconPath = openFileDialogPath.FileName;
                     LoadIconsFromFile(openFileDialogPath.FileName);
                 }
             }
@@ -62,6 +62,7 @@ namespace ProgramManagerVC
                 dTable = data.SendQueryWithReturn("SELECT * FROM items WHERE id = " + id_item);
                 textBoxName.Text = dTable.Rows[0][1].ToString();
                 textBoxPath.Text = dTable.Rows[0][2].ToString();
+                
                 // Read parameters column if available
                 if (dTable.Columns.Contains("parameters"))
                 {
@@ -87,17 +88,26 @@ namespace ProgramManagerVC
                     string[] parts = iconInfo.Split('|');
                     selectedIconPath = parts[0];
                     selectedIconIndex = int.Parse(parts[1]);
-                    textBoxIconPath.Text = selectedIconPath;
-                    LoadIconsFromFile(selectedIconPath);
                 }
                 else
                 {
                     // Old format: just path
                     selectedIconPath = iconInfo;
                     selectedIconIndex = 0;
-                    textBoxIconPath.Text = selectedIconPath;
-                    LoadIconsFromFile(selectedIconPath);
                 }
+
+                // Only show icon path if it differs from the executable path
+                if (selectedIconPath == textBoxPath.Text)
+                {
+                    textBoxIconPath.Text = "";
+                }
+                else
+                {
+                    textBoxIconPath.Text = selectedIconPath;
+                }
+                
+                // Load icons from the actual icon path
+                LoadIconsFromFile(selectedIconPath);
             }
         }
 
@@ -144,9 +154,9 @@ namespace ProgramManagerVC
                 imageListIcons.Images.Add(icon.ToBitmap());
                 
                 ListViewItem item = new ListViewItem();
-                item.Text = ""; // No text, just icon
+                item.Text = "";
                 item.ImageIndex = 0;
-                item.Tag = 0; // Icon index
+                item.Tag = 0;
                 listViewIcons.Items.Add(item);
             }
             catch (Exception ex)
@@ -160,7 +170,7 @@ namespace ProgramManagerVC
             try
             {
                 // Extract icons from executable/dll
-                for (int i = 0; i < 50; i++) // Try first 50 icons
+                for (int i = 0; i < 50; i++)
                 {
                     IntPtr hIcon = ExtractIcon(IntPtr.Zero, filePath, i);
                     if (hIcon != IntPtr.Zero && hIcon != (IntPtr)1)
@@ -171,9 +181,9 @@ namespace ProgramManagerVC
                             imageListIcons.Images.Add(icon.ToBitmap());
                             
                             ListViewItem item = new ListViewItem();
-                            item.Text = ""; // No text, just icon
+                            item.Text = "";
                             item.ImageIndex = imageListIcons.Images.Count - 1;
-                            item.Tag = i; // Store the original icon index
+                            item.Tag = i;
                             listViewIcons.Items.Add(item);
                             
                             DestroyIcon(hIcon);
@@ -185,7 +195,7 @@ namespace ProgramManagerVC
                     }
                     else
                     {
-                        break; // No more icons
+                        break;
                     }
                 }
                 
@@ -200,7 +210,7 @@ namespace ProgramManagerVC
                             imageListIcons.Images.Add(icon.ToBitmap());
                             
                             ListViewItem item = new ListViewItem();
-                            item.Text = ""; // No text, just icon
+                            item.Text = "";
                             item.ImageIndex = 0;
                             item.Tag = 0;
                             listViewIcons.Items.Add(item);
@@ -217,18 +227,16 @@ namespace ProgramManagerVC
 
         private void ArrangeIconsHorizontally()
         {
-            // Position icons in a horizontal line to prevent vertical scrollbar
-            int x = 5; // Starting X position with small margin
-            int y = 5; // Fixed Y position for single row with small margin
-            int iconSpacing = 38; // 32px icon + 6px spacing
+            int x = 5;
+            int y = 5;
+            int iconSpacing = 38;
             
             foreach (ListViewItem item in listViewIcons.Items)
             {
                 item.Position = new Point(x, y);
-                x += iconSpacing; // Move to next position horizontally only
+                x += iconSpacing;
             }
             
-            // Force the ListView to recognize the new layout
             listViewIcons.Invalidate();
         }
 
@@ -238,7 +246,7 @@ namespace ProgramManagerVC
             {
                 selectedIconIndex = (int)listViewIcons.SelectedItems[0].Tag;
                 UpdatePreviewIcon();
-                CheckTextBoxes(); // Revalidate form
+                CheckTextBoxes();
             }
         }
 
@@ -248,7 +256,6 @@ namespace ProgramManagerVC
             {
                 if (listViewIcons.SelectedItems.Count > 0)
                 {
-                    // Get the selected icon from the ImageList
                     int imageIndex = listViewIcons.SelectedItems[0].ImageIndex;
                     if (imageIndex >= 0 && imageIndex < imageListIcons.Images.Count)
                     {
@@ -257,13 +264,11 @@ namespace ProgramManagerVC
                 }
                 else
                 {
-                    // No selection, clear the preview
                     pictureBoxPreview.Image = null;
                 }
             }
             catch (Exception)
             {
-                // If there's an error, clear the preview
                 pictureBoxPreview.Image = null;
             }
         }
@@ -274,10 +279,8 @@ namespace ProgramManagerVC
             {
                 ListViewItem itemToSelect = null;
                 
-                // When editing an item, try to find the previously selected icon
                 if (id_item != "0")
                 {
-                    // Find the item with the matching icon index
                     foreach (ListViewItem item in listViewIcons.Items)
                     {
                         if ((int)item.Tag == selectedIconIndex)
@@ -288,20 +291,17 @@ namespace ProgramManagerVC
                     }
                 }
                 
-                // If no specific icon found (or creating new item), select first icon
                 if (itemToSelect == null)
                 {
                     itemToSelect = listViewIcons.Items[0];
                     selectedIconIndex = (int)itemToSelect.Tag;
                 }
                 
-                // Apply the selection
-                listViewIcons.SelectedItems.Clear(); // Clear any existing selection
+                listViewIcons.SelectedItems.Clear();
                 itemToSelect.Selected = true;
                 itemToSelect.Focused = true;
                 listViewIcons.EnsureVisible(itemToSelect.Index);
                 
-                // Update the selected index and preview
                 selectedIconIndex = (int)itemToSelect.Tag;
                 UpdatePreviewIcon();
             }
@@ -309,9 +309,11 @@ namespace ProgramManagerVC
 
         private void TextBoxIconPath_TextChanged(object sender, EventArgs e)
         {
-            if (!string.IsNullOrEmpty(textBoxIconPath.Text) && File.Exists(textBoxIconPath.Text))
+            string iconPathToLoad = string.IsNullOrEmpty(textBoxIconPath.Text) ? textBoxPath.Text : textBoxIconPath.Text;
+            
+            if (!string.IsNullOrEmpty(iconPathToLoad) && File.Exists(iconPathToLoad))
             {
-                LoadIconsFromFile(textBoxIconPath.Text);
+                LoadIconsFromFile(iconPathToLoad);
             }
             else
             {
@@ -320,10 +322,8 @@ namespace ProgramManagerVC
             }
             CheckTextBoxes();
 
-            // Automatic icon selection for new items
             if (id_item == "0" && listViewIcons.Items.Count > 0)
             {
-                // Select the first icon by default for new items
                 selectedIconIndex = 0;
                 listViewIcons.Items[0].Selected = true;
                 listViewIcons.Items[0].Focused = true;
@@ -350,7 +350,6 @@ namespace ProgramManagerVC
 
         private void ButtonOK_Click(object sender, EventArgs e)
         {
-            // Validate that the path exists
             if (!System.IO.File.Exists(textBoxPath.Text))
             {
                 MessageBox.Show("The specified file does not exist:\n\n" + textBoxPath.Text + 
@@ -358,24 +357,14 @@ namespace ProgramManagerVC
                                "File Not Found", 
                                MessageBoxButtons.OK, 
                                MessageBoxIcon.Warning);
-                return; // Stay on the dialog, don't close
+                return;
             }
 
+            // Determine actual icon path
+            string actualIconPath = string.IsNullOrEmpty(textBoxIconPath.Text) ? textBoxPath.Text : textBoxIconPath.Text;
+            
             // Prepare icon information for database
-            string iconInfo;
-            if (!string.IsNullOrEmpty(textBoxIconPath.Text) && File.Exists(textBoxIconPath.Text))
-            {
-                // Use selected icon
-                selectedIconPath = textBoxIconPath.Text;
-                iconInfo = selectedIconPath + "|" + selectedIconIndex;
-            }
-            else
-            {
-                // Use the executable path as default with index 0
-                iconInfo = textBoxPath.Text + "|0";
-                selectedIconPath = textBoxPath.Text;
-                selectedIconIndex = 0;
-            }
+            string iconInfo = actualIconPath + "|" + selectedIconIndex;
 
             // Read parameters textbox if available
             if (this.Controls.Find("textBoxParameters", true).Length > 0)
@@ -386,7 +375,6 @@ namespace ProgramManagerVC
 
             try
             {
-                // Validation passed - save the item
                 if (id_item == "0")
                 {
                     data.SendQueryWithoutReturn("INSERT INTO \"items\"(id,name,path,icon,groups,parameters) VALUES (NULL,'" + 
@@ -401,7 +389,6 @@ namespace ProgramManagerVC
                         "\", icon = \"" + iconInfo.Replace("\"", "\"\"") + "\", parameters = \"" + parameters.Replace("\"", "\"\"") + "\" WHERE id = " + id_item);
                 }
                 
-                // Only set DialogResult and close when everything is successful
                 this.DialogResult = DialogResult.OK;
                 this.Close();
             }
@@ -430,6 +417,12 @@ namespace ProgramManagerVC
 
         private void TextBoxPath_TextChanged(object sender, EventArgs e)
         {
+            // When path changes and icon path is empty, reload icons from new path
+            if (string.IsNullOrEmpty(textBoxIconPath.Text) && !string.IsNullOrEmpty(textBoxPath.Text) && File.Exists(textBoxPath.Text))
+            {
+                selectedIconIndex = 0;
+                LoadIconsFromFile(textBoxPath.Text);
+            }
             CheckTextBoxes();
         }
 
@@ -448,7 +441,6 @@ namespace ProgramManagerVC
                 e.Effect = DragDropEffects.None;
         }
 
-        // Windows API functions for extracting icons
         [DllImport("shell32.dll")]
         private static extern IntPtr ExtractIcon(IntPtr hInst, string lpszExeFileName, int nIconIndex);
 

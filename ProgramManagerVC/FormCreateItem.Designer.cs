@@ -156,7 +156,7 @@
             this.textBoxIconPath.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.FileSystem;
             this.textBoxIconPath.Location = new System.Drawing.Point(83, 95);
             this.textBoxIconPath.Name = "textBoxIconPath";
-            this.textBoxIconPath.Size = new System.Drawing.Size(283, 20);
+            this.textBoxIconPath.Size = new System.Drawing.Size(244, 20);
             this.textBoxIconPath.TabIndex = 8;
             this.textBoxIconPath.TextChanged += new System.EventHandler(this.TextBoxIconPath_TextChanged);
             this.textBoxIconPath.DragDrop += new System.Windows.Forms.DragEventHandler(this.textBoxIconPath_DragDrop);
@@ -166,13 +166,13 @@
             // 
             this.textBoxParameters.Location = new System.Drawing.Point(83, 69);
             this.textBoxParameters.Name = "textBoxParameters";
-            this.textBoxParameters.Size = new System.Drawing.Size(244, 20);
+            this.textBoxParameters.Size = new System.Drawing.Size(283, 20);
             this.textBoxParameters.TabIndex = 11;
             this.textBoxParameters.TextChanged += new System.EventHandler(this.TextBoxPath_TextChanged);
             // 
             // buttonIconBrowser
             // 
-            this.buttonIconBrowser.Location = new System.Drawing.Point(332, 69);
+            this.buttonIconBrowser.Location = new System.Drawing.Point(332, 95);
             this.buttonIconBrowser.Name = "buttonIconBrowser";
             this.buttonIconBrowser.Size = new System.Drawing.Size(34, 20);
             this.buttonIconBrowser.TabIndex = 9;
