@@ -8,6 +8,7 @@ using System.Text;
 using System.Windows.Forms;
 using System.Diagnostics;
 using System.Drawing.Drawing2D;
+using System.IO;
 
 namespace ProgramManagerVC
 {
@@ -123,12 +124,75 @@ namespace ProgramManagerVC
                 {
                     try
                     {
-                        string filePath = items.Rows[i][3].ToString();
-                        
-                        // Try to extract the icon from the file
-                        if (System.IO.File.Exists(filePath))
+                        string iconInfo = items.Rows[i][3].ToString();
+                        string iconPath;
+                        int iconIndex = 0;
+
+                        // Parse icon information (new format: "path|index" or old format: just path)
+                        if (iconInfo.Contains("|"))
                         {
-                            imageListIcons.Images.Add(Icon.ExtractAssociatedIcon(filePath).ToBitmap());
+                            string[] parts = iconInfo.Split('|');
+                            iconPath = parts[0];
+                            if (parts.Length > 1)
+                            {
+                                int.TryParse(parts[1], out iconIndex);
+                            }
+                        }
+                        else
+                        {
+                            iconPath = iconInfo;
+                            iconIndex = 0;
+                        }
+
+                        // Try to load the specified icon
+                        Icon extractedIcon = null;
+                        
+                        if (File.Exists(iconPath))
+                        {
+                            try
+                            {
+                                string extension = Path.GetExtension(iconPath).ToLower();
+                                
+                                if (extension == ".ico")
+                                {
+                                    extractedIcon = new Icon(iconPath);
+                                }
+                                else if (extension == ".exe" || extension == ".dll")
+                                {
+                                    // Extract specific icon by index
+                                    IntPtr hIcon = ExtractIcon(IntPtr.Zero, iconPath, iconIndex);
+                                    if (hIcon != IntPtr.Zero && hIcon != (IntPtr)1)
+                                    {
+                                        extractedIcon = Icon.FromHandle(hIcon);
+                                        // Note: We don't DestroyIcon here because we're using the icon
+                                    }
+                                    else
+                                    {
+                                        // Fallback to associated icon
+                                        extractedIcon = Icon.ExtractAssociatedIcon(iconPath);
+                                    }
+                                }
+                                else
+                                {
+                                    // For other file types, get associated icon
+                                    extractedIcon = Icon.ExtractAssociatedIcon(iconPath);
+                                }
+                            }
+                            catch
+                            {
+                                // If icon extraction fails, try the file path itself
+                                string filePath = items.Rows[i][2].ToString();
+                                if (File.Exists(filePath))
+                                {
+                                    extractedIcon = Icon.ExtractAssociatedIcon(filePath);
+                                }
+                            }
+                        }
+                        
+                        // Add the icon to the image list
+                        if (extractedIcon != null)
+                        {
+                            imageListIcons.Images.Add(extractedIcon.ToBitmap());
                         }
                         else
                         {
@@ -158,6 +222,10 @@ namespace ProgramManagerVC
                 }
             }
         }
+
+        // Windows API function for extracting icons
+        [System.Runtime.InteropServices.DllImport("shell32.dll")]
+        private static extern IntPtr ExtractIcon(IntPtr hInst, string lpszExeFileName, int nIconIndex);
 
         private void FormChild_ResizeEnd(object sender, EventArgs e)
         {
