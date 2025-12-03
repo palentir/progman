@@ -190,46 +190,16 @@ namespace ProgramManagerVC
                 FormChild child = associatedForm as FormChild;
                 if (child != null)
                 {
-                    if (child.Tag != null)
-                    {
-                        DataTable dt = ProgramManagerVC.data.SendQueryWithReturn("SELECT x,y,width,height FROM groups WHERE id = " + child.Tag);
-                        if (dt.Rows.Count > 0)
-                        {
-                            int x = SafeInt(dt.Rows[0][0]);
-                            int y = SafeInt(dt.Rows[0][1]);
-                            int w = SafeInt(dt.Rows[0][2]);
-                            int h = SafeInt(dt.Rows[0][3]);
-                            if (w > 50 && h > 50)
-                            {
-                                child.StartPosition = FormStartPosition.Manual;
-                                child.Location = new Point(x, y);
-                                child.Size = new Size(w, h);
-                            }
-                        }
-                    }
-
-                    if (!child.Visible) child.Visible = true;
+                    // Restore window
                     child.WindowState = FormWindowState.Normal;
+                    child.Visible = true;
                     child.BringToFront();
                     child.Activate();
-
-                    if (child.Tag != null)
-                    {
-                        ProgramManagerVC.data.SendQueryWithoutReturn("UPDATE groups SET status=1 WHERE id=" + child.Tag);
-                    }
-
-                    // Use stored reference instead of FindForm
-                    if (mainForm != null)
-                    {
-                        mainForm.RemoveMinimizedIcon(child);
-                    }
+                    
+                    // Remove this icon since window is restored
+                    mainForm?.RemoveMinimizedIcon(child);
                 }
             }
-        }
-
-        private int SafeInt(object o)
-        {
-            int v; if (o == null || o == DBNull.Value) return 0; if (!int.TryParse(o.ToString(), out v)) return 0; return v;
         }
 
         private void ShowContextMenu(Point location)
@@ -247,6 +217,15 @@ namespace ProgramManagerVC
             ToolStripMenuItem moveItem = new ToolStripMenuItem("&Move");
             moveItem.Enabled = false;
             menu.Items.Add(moveItem);
+            
+            ToolStripMenuItem closeItem = new ToolStripMenuItem("&Close");
+            closeItem.Click += (s, ev) => {
+                if (associatedForm != null && !associatedForm.IsDisposed)
+                {
+                    associatedForm.Close();
+                }
+            };
+            menu.Items.Add(closeItem);
             
             menu.Show(this, location);
         }

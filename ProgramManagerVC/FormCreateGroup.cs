@@ -6,7 +6,7 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
-using data = ProgramManagerVC.data;
+using System.IO;
 
 namespace ProgramManagerVC
 {
@@ -28,11 +28,23 @@ namespace ProgramManagerVC
         {
             if (id_group == "0")
             {
-                data.SendQueryWithoutReturn("INSERT INTO groups (id,name,status) VALUES (NULL,\"" + textBoxName.Text + "\",1)");
+                // Creating new group
+                FileBasedData.CreateGroup(textBoxName.Text);
             }
             else
             {
-                data.SendQueryWithoutReturn("UPDATE groups SET name = \"" + textBoxName.Text + "\" WHERE id = " + id_group);
+                // Editing existing group
+                var groups = FileBasedData.GetAllGroups();
+                var group = groups.FirstOrDefault(g => g.Id == id_group);
+                
+                if (group != null)
+                {
+                    // If name changed, rename the folder
+                    if (group.Name != textBoxName.Text)
+                    {
+                        FileBasedData.RenameGroup(group.Name, textBoxName.Text);
+                    }
+                }
             }
             this.Close();
         }
@@ -41,20 +53,31 @@ namespace ProgramManagerVC
         {
             if(id_group != "0")
             {
-                DataTable dTable = new DataTable();
-                dTable = data.SendQueryWithReturn("SELECT * FROM groups WHERE id = " + id_group);
-                textBoxName.Text = dTable.Rows[0][1].ToString();
+                var groups = FileBasedData.GetAllGroups();
+                var group = groups.FirstOrDefault(g => g.Id == id_group);
+                
+                if (group != null)
+                {
+                    textBoxName.Text = group.Name;
+                }
             }
         }
 
         private void TextBoxName_TextChanged(object sender, EventArgs e)
         {
-            buttonOK.Enabled = !string.IsNullOrEmpty(textBoxName.Text);
+            buttonOK.Enabled = !string.IsNullOrEmpty(textBoxName.Text) && IsValidFolderName(textBoxName.Text);
+        }
+
+        private bool IsValidFolderName(string name)
+        {
+            // Check for invalid characters in folder names
+            char[] invalidChars = Path.GetInvalidFileNameChars();
+            return !string.IsNullOrWhiteSpace(name) && name.IndexOfAny(invalidChars) == -1;
         }
 
         private void textBoxName_KeyUp(object sender, KeyEventArgs e)
         {
-            if (e.KeyCode == Keys.Return && !string.IsNullOrEmpty(textBoxName.Text))
+            if (e.KeyCode == Keys.Return && !string.IsNullOrEmpty(textBoxName.Text) && IsValidFolderName(textBoxName.Text))
             {
                 buttonOK.PerformClick();
             }

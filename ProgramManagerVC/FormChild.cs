@@ -82,34 +82,23 @@ namespace ProgramManagerVC
         {
             if (listViewMain.SelectedItems.Count > 0)
             {
-                string id = listViewMain.SelectedItems[0].Tag.ToString();
-                DataTable dt = data.SendQueryWithReturn("SELECT path, parameters FROM items WHERE id = " + id);
-                if (dt.Rows.Count == 0) return;
-                string filePath = dt.Rows[0][0].ToString();
-                string parameters = "";
-                if (dt.Columns.Count > 1) parameters = dt.Rows[0][1].ToString();
+                var shortcutInfo = (ShortcutInfo)listViewMain.SelectedItems[0].Tag;
                 
                 // Check if file exists before trying to launch it
-                if (System.IO.File.Exists(filePath))
+                if (System.IO.File.Exists(shortcutInfo.TargetPath))
                 {
                     try
                     {
-                        if (string.IsNullOrEmpty(parameters))
-                        {
-                            Process.Start(filePath);
-                        }
-                        else
-                        {
-                            var psi = new ProcessStartInfo();
-                            psi.FileName = filePath;
-                            psi.Arguments = parameters;
-                            psi.UseShellExecute = true;
-                            Process.Start(psi);
-                        }
+                        var psi = new ProcessStartInfo();
+                        psi.FileName = shortcutInfo.TargetPath;
+                        psi.Arguments = shortcutInfo.Arguments ?? "";
+                        psi.WorkingDirectory = shortcutInfo.WorkingDirectory ?? Path.GetDirectoryName(shortcutInfo.TargetPath);
+                        psi.UseShellExecute = true;
+                        Process.Start(psi);
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show("Could not open file:\n\n" + filePath + 
+                        MessageBox.Show("Could not open file:\n\n" + shortcutInfo.TargetPath + 
                                        "\n\nError: " + ex.Message, 
                                        "Error Opening File", 
                                        MessageBoxButtons.OK, 
@@ -118,7 +107,7 @@ namespace ProgramManagerVC
                 }
                 else
                 {
-                    MessageBox.Show("The file does not exist:\n\n" + filePath + 
+                    MessageBox.Show("The file does not exist:\n\n" + shortcutInfo.TargetPath + 
                                    "\n\nThe file may have been moved, renamed, or deleted. " +
                                    "You can edit this item's properties to update the path.", 
                                    "File Not Found", 
@@ -132,111 +121,154 @@ namespace ProgramManagerVC
         {
             listViewMain.Items.Clear();
             imageListIcons.Images.Clear();
-            DataTable items = new DataTable();
-            items = data.SendQueryWithReturn("SELECT * FROM items WHERE groups = " + this.Tag);
-            if (items.Rows.Count > 0)
+            
+            var groupName = GetGroupNameFromId(this.Tag?.ToString() ?? "");
+            if (string.IsNullOrEmpty(groupName)) return;
+
+            // Use the root-handling version to catch .lnk files in root folder
+            var shortcuts = FileBasedData.GetShortcutsInGroupWithRoot(groupName);
+            
+            for (int i = 0; i < shortcuts.Count; i++)
             {
-                for (int i = 0; i < items.Rows.Count; i++)
+                var shortcut = shortcuts[i];
+                
+                try
                 {
-                    try
+                    // Try to load the icon with multiple fallback strategies
+                    Icon extractedIcon = ExtractIconFromShortcut(shortcut);
+                    
+                    // Add the icon to the image list
+                    if (extractedIcon != null)
                     {
-                        string iconInfo = items.Rows[i][3].ToString();
-                        string iconPath;
-                        int iconIndex = 0;
-
-                        // Parse icon information (new format: "path|index" or old format: just path)
-                        if (iconInfo.Contains("|"))
-                        {
-                            string[] parts = iconInfo.Split('|');
-                            iconPath = parts[0];
-                            if (parts.Length > 1)
-                            {
-                                int.TryParse(parts[1], out iconIndex);
-                            }
-                        }
-                        else
-                        {
-                            iconPath = iconInfo;
-                            iconIndex = 0;
-                        }
-
-                        // Try to load the specified icon
-                        Icon extractedIcon = null;
-                        
-                        if (File.Exists(iconPath))
-                        {
-                            try
-                            {
-                                string extension = Path.GetExtension(iconPath).ToLower();
-                                
-                                if (extension == ".ico")
-                                {
-                                    extractedIcon = new Icon(iconPath);
-                                }
-                                else if (extension == ".exe" || extension == ".dll")
-                                {
-                                    // Extract specific icon by index
-                                    IntPtr hIcon = ExtractIcon(IntPtr.Zero, iconPath, iconIndex);
-                                    if (hIcon != IntPtr.Zero && hIcon != (IntPtr)1)
-                                    {
-                                        extractedIcon = Icon.FromHandle(hIcon);
-                                        // Note: We don't DestroyIcon here because we're using the icon
-                                    }
-                                    else
-                                    {
-                                        // Fallback to associated icon
-                                        extractedIcon = Icon.ExtractAssociatedIcon(iconPath);
-                                    }
-                                }
-                                else
-                                {
-                                    // For other file types, get associated icon
-                                    extractedIcon = Icon.ExtractAssociatedIcon(iconPath);
-                                }
-                            }
-                            catch
-                            {
-                                // If icon extraction fails, try the file path itself
-                                string filePath = items.Rows[i][2].ToString();
-                                if (File.Exists(filePath))
-                                {
-                                    extractedIcon = Icon.ExtractAssociatedIcon(filePath);
-                                }
-                            }
-                        }
-                        
-                        // Add the icon to the image list
-                        if (extractedIcon != null)
-                        {
-                            imageListIcons.Images.Add(extractedIcon.ToBitmap());
-                        }
-                        else
-                        {
-                            // File doesn't exist - use a default "missing file" icon
-                            imageListIcons.Images.Add(SystemIcons.Warning.ToBitmap());
-                        }
-                        
-                        ListViewItem item = new ListViewItem();
-                        item.Text = items.Rows[i][1].ToString();
-                        item.ImageIndex = i;
-                        item.ToolTipText = items.Rows[i][2].ToString();
-                        item.Tag = items.Rows[i][0].ToString();
-                        listViewMain.Items.Add(item);
+                        imageListIcons.Images.Add(extractedIcon.ToBitmap());
                     }
-                    catch (Exception)
+                    else
                     {
-                        // Even if there's an exception extracting the icon, still show the item
-                        imageListIcons.Images.Add(SystemIcons.Error.ToBitmap());
-                        
-                        ListViewItem item = new ListViewItem();
-                        item.Text = items.Rows[i][1].ToString();
-                        item.ImageIndex = i;
-                        item.ToolTipText = items.Rows[i][2].ToString();
-                        item.Tag = items.Rows[i][0].ToString();
-                        listViewMain.Items.Add(item);
+                        // Ultimate fallback - use a default application icon
+                        imageListIcons.Images.Add(SystemIcons.Application.ToBitmap());
                     }
+                    
+                    ListViewItem item = new ListViewItem();
+                    item.Text = shortcut.Name;
+                    item.ImageIndex = i;
+                    
+                    // Build tooltip with target and arguments
+                    string tooltip = shortcut.TargetPath;
+                    if (!string.IsNullOrEmpty(shortcut.Arguments))
+                        tooltip += " " + shortcut.Arguments;
+                    item.ToolTipText = tooltip;
+                    
+                    item.Tag = shortcut; // Store the entire shortcut info
+                    listViewMain.Items.Add(item);
+                }
+                catch (Exception ex)
+                {
+                    // Even if there's an exception, still show the item
+                    System.Diagnostics.Debug.WriteLine($"Error processing shortcut {shortcut.Name}: {ex.Message}");
+                    
+                    imageListIcons.Images.Add(SystemIcons.Error.ToBitmap());
+                    
+                    ListViewItem item = new ListViewItem();
+                    item.Text = shortcut.Name;
+                    item.ImageIndex = i;
+                    item.ToolTipText = shortcut.TargetPath + " (Error loading)";
+                    item.Tag = shortcut;
+                    listViewMain.Items.Add(item);
                 }
             }
+        }
+
+        /// <summary>
+        /// Extracts icon from shortcut with multiple fallback strategies
+        /// </summary>
+        private Icon ExtractIconFromShortcut(ShortcutInfo shortcut)
+        {
+            Icon extractedIcon = null;
+
+            // Strategy 1: Try to load icon from the specified icon location
+            if (!string.IsNullOrEmpty(shortcut.IconLocation) && File.Exists(shortcut.IconLocation))
+            {
+                extractedIcon = TryExtractIconFromFile(shortcut.IconLocation, shortcut.IconIndex);
+                if (extractedIcon != null) return extractedIcon;
+            }
+
+            // Strategy 2: Try to load icon from the target executable
+            if (!string.IsNullOrEmpty(shortcut.TargetPath) && File.Exists(shortcut.TargetPath))
+            {
+                extractedIcon = TryExtractIconFromFile(shortcut.TargetPath, 0);
+                if (extractedIcon != null) return extractedIcon;
+            }
+
+            // Strategy 3: Try to get associated icon for the target file
+            if (!string.IsNullOrEmpty(shortcut.TargetPath) && File.Exists(shortcut.TargetPath))
+            {
+                try
+                {
+                    extractedIcon = Icon.ExtractAssociatedIcon(shortcut.TargetPath);
+                    if (extractedIcon != null) return extractedIcon;
+                }
+                catch { }
+            }
+
+            // Strategy 4: Try to get associated icon for the shortcut file itself
+            try
+            {
+                extractedIcon = Icon.ExtractAssociatedIcon(shortcut.ShortcutPath);
+                if (extractedIcon != null) return extractedIcon;
+            }
+            catch { }
+
+            // Strategy 5: Use system warning icon for missing files
+            if (!File.Exists(shortcut.TargetPath))
+            {
+                return SystemIcons.Warning;
+            }
+
+            return null; // Will fall back to SystemIcons.Application in calling method
+        }
+
+        /// <summary>
+        /// Tries to extract an icon from a file (exe, dll, or ico)
+        /// </summary>
+        private Icon TryExtractIconFromFile(string filePath, int iconIndex)
+        {
+            try
+            {
+                if (!File.Exists(filePath)) return null;
+
+                string extension = Path.GetExtension(filePath).ToLower();
+                
+                if (extension == ".ico")
+                {
+                    return new Icon(filePath);
+                }
+                else if (extension == ".exe" || extension == ".dll")
+                {
+                    // Extract specific icon by index using Windows Shell API
+                    IntPtr hIcon = ExtractIcon(IntPtr.Zero, filePath, iconIndex);
+                    if (hIcon != IntPtr.Zero && hIcon != (IntPtr)1)
+                    {
+                        Icon icon = Icon.FromHandle(hIcon);
+                        // Don't destroy the icon handle here, let GC handle it
+                        return icon;
+                    }
+                }
+                
+                // Fallback to associated icon
+                return Icon.ExtractAssociatedIcon(filePath);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error extracting icon from {filePath}: {ex.Message}");
+                return null;
+            }
+        }
+
+        private string GetGroupNameFromId(string id)
+        {
+            var groups = FileBasedData.GetAllGroups();
+            var group = groups.FirstOrDefault(g => g.Id == id);
+            return group?.Name ?? "";
         }
 
         // Windows API function for extracting icons
@@ -258,32 +290,34 @@ namespace ProgramManagerVC
 
         private void SaveWindowState()
         {
-            int status = 1;
-            if (this.WindowState == FormWindowState.Minimized)
+            if (this.Tag != null)
             {
-                status = 0;
-            }
-            else if (this.WindowState == FormWindowState.Normal)
-            {
-                status = 1;
-            }
-            else if (this.WindowState == FormWindowState.Maximized)
-            {
-                status = 2;
-            }
-            
-            if (this.WindowState == FormWindowState.Normal)
-            {
-                data.SendQueryWithoutReturn("UPDATE groups SET status=" + status + 
-                    ", x=" + this.Location.X + 
-                    ", y=" + this.Location.Y + 
-                    ", width=" + this.Width + 
-                    ", height=" + this.Height + 
-                    " WHERE id=" + this.Tag);
-            }
-            else
-            {
-                data.SendQueryWithoutReturn("UPDATE groups SET status=" + status + " WHERE id=" + this.Tag);
+                var groups = FileBasedData.GetAllGroups();
+                var group = groups.FirstOrDefault(g => g.Id == this.Tag.ToString());
+                
+                if (group != null)
+                {
+                    // Update group info with current window state
+                    group.Name = this.Text;
+                    
+                    if (this.WindowState == FormWindowState.Minimized)
+                        group.WindowStatus = 0;
+                    else if (this.WindowState == FormWindowState.Maximized)
+                        group.WindowStatus = 2;
+                    else
+                        group.WindowStatus = 1;
+
+                    if (this.WindowState == FormWindowState.Normal)
+                    {
+                        group.X = this.Location.X;
+                        group.Y = this.Location.Y;
+                        group.Width = this.Width;
+                        group.Height = this.Height;
+                    }
+                    
+                    // Save to .ini file in application folder
+                    FileBasedData.SaveGroupSettings(group);
+                }
             }
         }
 
@@ -317,88 +351,74 @@ namespace ProgramManagerVC
         {
             if (listViewMain.SelectedItems.Count > 0)
             {
-                string id = listViewMain.SelectedItems[0].Tag.ToString();
-                DataTable dt = data.SendQueryWithReturn("SELECT path, parameters FROM items WHERE id = " + id);
-                if (dt.Rows.Count == 0) return;
-                string filePath = dt.Rows[0][0].ToString();
-                string parameters = "";
-                if (dt.Columns.Count > 1) parameters = dt.Rows[0][1].ToString();
+                var shortcutInfo = (ShortcutInfo)listViewMain.SelectedItems[0].Tag;
                 
-                 // Check if file exists before trying to launch it
-                 if (System.IO.File.Exists(filePath))
-                 {
-                     try
-                     {
-                        if (string.IsNullOrEmpty(parameters))
-                        {
-                            Process.Start(filePath);
-                        }
-                        else
-                        {
-                            var psi = new ProcessStartInfo();
-                            psi.FileName = filePath;
-                            psi.Arguments = parameters;
-                            psi.UseShellExecute = true;
-                            Process.Start(psi);
-                        }
-                     }
-                     catch (Exception ex)
-                     {
-                         MessageBox.Show("Could not open file:\n\n" + filePath + 
-                                        "\n\nError: " + ex.Message, 
-                                        "Error Opening File", 
-                                        MessageBoxButtons.OK, 
-                                        MessageBoxIcon.Error);
-                     }
-                 }
-                 else
-                 {
-                     MessageBox.Show("The file does not exist:\n\n" + filePath + 
-                                    "\n\nThe file may have been moved, renamed, or deleted. " +
-                                    "You can edit this item's properties to update the path.", 
-                                    "File Not Found", 
-                                    MessageBoxButtons.OK, 
-                                    MessageBoxIcon.Warning);
-                 }
-             }
-         }
+                // Check if file exists before trying to launch it
+                if (System.IO.File.Exists(shortcutInfo.TargetPath))
+                {
+                    try
+                    {
+                        var psi = new ProcessStartInfo();
+                        psi.FileName = shortcutInfo.TargetPath;
+                        psi.Arguments = shortcutInfo.Arguments ?? "";
+                        psi.WorkingDirectory = shortcutInfo.WorkingDirectory ?? Path.GetDirectoryName(shortcutInfo.TargetPath);
+                        psi.UseShellExecute = true;
+                        Process.Start(psi);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Could not open file:\n\n" + shortcutInfo.TargetPath + 
+                                       "\n\nError: " + ex.Message, 
+                                       "Error Opening File", 
+                                       MessageBoxButtons.OK, 
+                                       MessageBoxIcon.Error);
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("The file does not exist:\n\n" + shortcutInfo.TargetPath + 
+                                   "\n\nThe file may have been moved, renamed, or deleted. " +
+                                   "You can edit this item's properties to update the path.", 
+                                   "File Not Found", 
+                                   MessageBoxButtons.OK, 
+                                   MessageBoxIcon.Warning);
+                }
+            }
+        }
 
         private void editToolStripMenuItem_Click(object sender, EventArgs e) 
         {
             if (listViewMain.SelectedItems.Count > 0)
             {
-                string id = listViewMain.SelectedItems[0].Tag.ToString();
-                DataTable dt = data.SendQueryWithReturn("SELECT path FROM items WHERE id = " + id);
-                if (dt.Rows.Count == 0) return;
-                string filePath = dt.Rows[0][0].ToString();
-                 
-                 // Check if file exists before trying to show it in explorer
-                 if (System.IO.File.Exists(filePath))
-                 {
-                     try
-                     {
-                        Process.Start(new ProcessStartInfo("explorer.exe", "/select, \"" + filePath + "\""));
-                     }
-                     catch (Exception ex)
-                     {
-                         MessageBox.Show("Could not open file location:\n\n" + filePath + 
-                                        "\n\nError: " + ex.Message, 
-                                        "Error", 
-                                        MessageBoxButtons.OK, 
-                                        MessageBoxIcon.Error);
-                     }
-                 }
-                 else
-                 {
-                     MessageBox.Show("The file does not exist:\n\n" + filePath + 
-                                    "\n\nThe file may have been moved, renamed, or deleted. " +
-                                    "You can edit this item's properties to update the path.", 
-                                    "File Not Found", 
-                                    MessageBoxButtons.OK, 
-                                    MessageBoxIcon.Warning);
-                 }
-             }
-         }
+                var shortcutInfo = (ShortcutInfo)listViewMain.SelectedItems[0].Tag;
+                
+                // Check if file exists before trying to show it in explorer
+                if (System.IO.File.Exists(shortcutInfo.TargetPath))
+                {
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo("explorer.exe", "/select, \"" + shortcutInfo.TargetPath + "\""));
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Could not open file location:\n\n" + shortcutInfo.TargetPath + 
+                                       "\n\nError: " + ex.Message, 
+                                       "Error", 
+                                       MessageBoxButtons.OK, 
+                                       MessageBoxIcon.Error);
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("The file does not exist:\n\n" + shortcutInfo.TargetPath + 
+                                   "\n\nThe file may have been moved, renamed, or deleted. " +
+                                   "You can edit this item's properties to update the path.", 
+                                   "File Not Found", 
+                                   MessageBoxButtons.OK, 
+                                   MessageBoxIcon.Warning);
+                }
+            }
+        }
 
         private void runAsAdministratorToolStripMenuItem_Click(object sender, EventArgs e) 
         {
@@ -406,91 +426,103 @@ namespace ProgramManagerVC
             {
                 if (listViewMain.SelectedItems.Count > 0)
                 {
-                    string id = listViewMain.SelectedItems[0].Tag.ToString();
-                    DataTable dt = data.SendQueryWithReturn("SELECT path, parameters FROM items WHERE id = " + id);
-                    if (dt.Rows.Count == 0) return;
-                    string filePath = dt.Rows[0][0].ToString();
-                    string parameters = "";
-                    if (dt.Columns.Count > 1) parameters = dt.Rows[0][1].ToString();
-                     
-                     // Check if file exists before trying to run it
-                     if (System.IO.File.Exists(filePath))
-                     {
-                         try 
-                         {
+                    var shortcutInfo = (ShortcutInfo)listViewMain.SelectedItems[0].Tag;
+                    
+                    // Check if file exists before trying to run it
+                    if (System.IO.File.Exists(shortcutInfo.TargetPath))
+                    {
+                        try 
+                        {
                             Process proc = new Process();
-                            proc.StartInfo.FileName = filePath;
-                            proc.StartInfo.Arguments = parameters;
+                            proc.StartInfo.FileName = shortcutInfo.TargetPath;
+                            proc.StartInfo.Arguments = shortcutInfo.Arguments ?? "";
                             proc.StartInfo.UseShellExecute = true;
                             proc.StartInfo.Verb = "runas";
                             proc.Start();
-                         }
-                         catch (Exception ex)
-                         {
-                             MessageBox.Show("Could not run file as administrator:\n\n" + filePath + 
-                                            "\n\nError: " + ex.Message, 
-                                            "Error", 
-                                            MessageBoxButtons.OK, 
-                                            MessageBoxIcon.Error);
-                         }
-                     }
-                     else
-                     {
-                         MessageBox.Show("The file does not exist:\n\n" + filePath + 
-                                        "\n\nThe file may have been moved, renamed, or deleted. " +
-                                        "You can edit this item's properties to update the path.", 
-                                        "File Not Found", 
-                                        MessageBoxButtons.OK, 
-                                        MessageBoxIcon.Warning);
-                     }
-                 }
-             }
-         }
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show("Could not run file as administrator:\n\n" + shortcutInfo.TargetPath + 
+                                           "\n\nError: " + ex.Message, 
+                                           "Error", 
+                                           MessageBoxButtons.OK, 
+                                           MessageBoxIcon.Error);
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show("The file does not exist:\n\n" + shortcutInfo.TargetPath + 
+                                       "\n\nThe file may have been moved, renamed, or deleted. " +
+                                       "You can edit this item's properties to update the path.", 
+                                       "File Not Found", 
+                                       MessageBoxButtons.OK, 
+                                       MessageBoxIcon.Warning);
+                    }
+                }
+            }
+        }
 
         private void deleteToolStripMenuItem_Click(object sender, EventArgs e) 
         {
-            if (MessageBox.Show("Do you really want to delete the \"" + listViewMain.SelectedItems[0].Text + "\" item?",
-                                   "Confirm",
-                                   MessageBoxButtons.YesNo,
-                                   MessageBoxIcon.Question) == DialogResult.Yes) 
+            if (listViewMain.SelectedItems.Count > 0)
             {
-                data.SendQueryWithoutReturn("DELETE FROM \"items\" WHERE id = " + listViewMain.SelectedItems[0].Tag);
-                this.InitializeItems();
+                var selectedItem = listViewMain.SelectedItems[0];
+                if (MessageBox.Show("Do you really want to delete the \"" + selectedItem.Text + "\" item?",
+                                       "Confirm",
+                                       MessageBoxButtons.YesNo,
+                                       MessageBoxIcon.Question) == DialogResult.Yes) 
+                {
+                    var groupName = GetGroupNameFromId(this.Tag?.ToString() ?? "");
+                    var shortcutInfo = (ShortcutInfo)selectedItem.Tag;
+                    
+                    // Delete the .lnk file
+                    if (File.Exists(shortcutInfo.ShortcutPath))
+                    {
+                        File.Delete(shortcutInfo.ShortcutPath);
+                    }
+                    
+                    InitializeItems();
+                }
             }
         }
 
         private void newItemToolStripMenuItem_Click(object sender, EventArgs e) 
         {
-            using (FormCreateItem createform = new FormCreateItem(this.Tag.ToString())) 
+            using (FormCreateItem createform = new FormCreateItem(this.Tag?.ToString() ?? "")) 
             {
                 if (createform.ShowDialog() == DialogResult.OK) 
                 {
-                    this.InitializeItems();
+                    InitializeItems();
                 }
             }
         }
 
-        private void propertiesToolStripMenuItem_Click(object sender, EventArgs e)
+        private void propertiesToolStripMenuItem_Click(object sender, EventArgs e) 
         {
-                using (FormCreateItem createform = new FormCreateItem(this.Tag.ToString(),
-                    this.listViewMain.SelectedItems[0].Tag.ToString()))
+            if (listViewMain.SelectedItems.Count > 0)
+            {
+                var selectedItem = listViewMain.SelectedItems[0];
+                using (FormCreateItem createform = new FormCreateItem(this.Tag?.ToString() ?? "", selectedItem.Text))
                 {
                     if (createform.ShowDialog() == DialogResult.OK)
                     {
                         InitializeItems();
                     }
                 }
-           
+            }
         }
 
         private void propertiesToolStripMenuItem1_Click(object sender, EventArgs e)
         {
-            Form createForm = new FormCreateGroup(this.Tag.ToString());
+            Form createForm = new FormCreateGroup(this.Tag?.ToString() ?? "");
             if (createForm.ShowDialog() == DialogResult.OK)
             {
-                DataTable db = new DataTable();
-                db = data.SendQueryWithReturn("SELECT * FROM groups WHERE id = '" + this.Tag.ToString() + "';");
-                this.Text = db.Rows[0][1].ToString();
+                var groups = FileBasedData.GetAllGroups();
+                var group = groups.FirstOrDefault(g => g.Id == this.Tag?.ToString());
+                if (group != null)
+                {
+                    this.Text = group.Name;
+                }
                 InitializeItems();
             }
         }
@@ -502,7 +534,8 @@ namespace ProgramManagerVC
                                MessageBoxButtons.YesNo,
                                MessageBoxIcon.Question) == DialogResult.Yes)
             {
-                data.SendQueryWithoutReturn("DELETE FROM \"groups\" WHERE id = " + this.Tag);
+                var groupName = GetGroupNameFromId(this.Tag?.ToString() ?? "");
+                FileBasedData.DeleteGroup(groupName);
                 this.Hide();
                 this.DestroyHandle();
             }

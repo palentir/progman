@@ -14,19 +14,18 @@ namespace ProgramManagerVC
     public partial class FormCreateItem : Form
     {
         string id_group;
-        string id_item;
+        string shortcut_name;
+        private ShortcutInfo existingShortcut;
         private string selectedIconPath;
         private int selectedIconIndex;
-        private string parameters;
 
-        public FormCreateItem(string id, string iditem = "0")
+        public FormCreateItem(string id, string shortcutName = "")
         {
             InitializeComponent();
             id_group = id;
-            id_item = iditem;
+            shortcut_name = shortcutName;
             selectedIconPath = "";
             selectedIconIndex = 0;
-            parameters = "";
         }
 
         private void ButtonBrowser_Click(object sender, EventArgs e)
@@ -34,6 +33,12 @@ namespace ProgramManagerVC
             if(openFileDialogPath.ShowDialog() == DialogResult.OK)
             {
                 textBoxPath.Text = openFileDialogPath.FileName;
+                
+                // Auto-populate name if empty
+                if (string.IsNullOrEmpty(textBoxName.Text))
+                {
+                    textBoxName.Text = Path.GetFileNameWithoutExtension(openFileDialogPath.FileName);
+                }
                 
                 // Auto-populate icon from path if icon path is empty
                 if (string.IsNullOrEmpty(textBoxIconPath.Text))
@@ -56,59 +61,48 @@ namespace ProgramManagerVC
 
         private void FormCreateItem_Load(object sender, EventArgs e)
         {
-            if (id_item != "0")
+            if (!string.IsNullOrEmpty(shortcut_name))
             {
-                DataTable dTable = new DataTable();
-                dTable = data.SendQueryWithReturn("SELECT * FROM items WHERE id = " + id_item);
-                textBoxName.Text = dTable.Rows[0][1].ToString();
-                textBoxPath.Text = dTable.Rows[0][2].ToString();
+                // Editing existing shortcut
+                var groupName = GetGroupNameFromId(id_group);
+                var shortcuts = FileBasedData.GetShortcutsInGroup(groupName);
+                existingShortcut = shortcuts.FirstOrDefault(s => s.Name == shortcut_name);
                 
-                // Read parameters column if available
-                if (dTable.Columns.Contains("parameters"))
+                if (existingShortcut != null)
                 {
-                    try { parameters = dTable.Rows[0]["parameters"].ToString(); } catch { parameters = ""; }
+                    textBoxName.Text = existingShortcut.Name;
+                    textBoxPath.Text = existingShortcut.TargetPath;
+                    
+                    // Set parameters textbox if available
+                    if (this.Controls.Find("textBoxParameters", true).Length > 0)
+                    {
+                        var tb = this.Controls.Find("textBoxParameters", true)[0] as TextBox;
+                        if (tb != null) tb.Text = existingShortcut.Arguments ?? "";
+                    }
+                    
+                    selectedIconPath = existingShortcut.IconLocation;
+                    selectedIconIndex = existingShortcut.IconIndex;
+                    
+                    // Only show icon path if it differs from the executable path
+                    if (selectedIconPath == textBoxPath.Text)
+                    {
+                        textBoxIconPath.Text = "";
+                    }
+                    else
+                    {
+                        textBoxIconPath.Text = selectedIconPath;
+                    }
+                    
+                    LoadIconsFromFile(selectedIconPath);
                 }
-                else
-                {
-                    parameters = "";
-                }
-
-                // Set parameters textbox if present
-                if (this.Controls.Find("textBoxParameters", true).Length > 0)
-                {
-                    var tb = this.Controls.Find("textBoxParameters", true)[0] as TextBox;
-                    if (tb != null) tb.Text = parameters;
-                }
-                
-                // Load existing icon info
-                string iconInfo = dTable.Rows[0][3].ToString();
-                if (iconInfo.Contains("|"))
-                {
-                    // New format: "path|index"
-                    string[] parts = iconInfo.Split('|');
-                    selectedIconPath = parts[0];
-                    selectedIconIndex = int.Parse(parts[1]);
-                }
-                else
-                {
-                    // Old format: just path
-                    selectedIconPath = iconInfo;
-                    selectedIconIndex = 0;
-                }
-
-                // Only show icon path if it differs from the executable path
-                if (selectedIconPath == textBoxPath.Text)
-                {
-                    textBoxIconPath.Text = "";
-                }
-                else
-                {
-                    textBoxIconPath.Text = selectedIconPath;
-                }
-                
-                // Load icons from the actual icon path
-                LoadIconsFromFile(selectedIconPath);
             }
+        }
+
+        private string GetGroupNameFromId(string id)
+        {
+            var groups = FileBasedData.GetAllGroups();
+            var group = groups.FirstOrDefault(g => g.Id == id);
+            return group?.Name ?? "";
         }
 
         private void LoadIconsFromFile(string filePath)
@@ -279,7 +273,7 @@ namespace ProgramManagerVC
             {
                 ListViewItem itemToSelect = null;
                 
-                if (id_item != "0")
+                if (existingShortcut != null)
                 {
                     foreach (ListViewItem item in listViewIcons.Items)
                     {
@@ -322,7 +316,7 @@ namespace ProgramManagerVC
             }
             CheckTextBoxes();
 
-            if (id_item == "0" && listViewIcons.Items.Count > 0)
+            if (existingShortcut == null && listViewIcons.Items.Count > 0)
             {
                 selectedIconIndex = 0;
                 listViewIcons.Items[0].Selected = true;
@@ -360,33 +354,36 @@ namespace ProgramManagerVC
                 return;
             }
 
-            // Determine actual icon path
-            string actualIconPath = string.IsNullOrEmpty(textBoxIconPath.Text) ? textBoxPath.Text : textBoxIconPath.Text;
-            
-            // Prepare icon information for database
-            string iconInfo = actualIconPath + "|" + selectedIconIndex;
-
-            // Read parameters textbox if available
+            // Get parameters if textbox exists
+            string parameters = "";
             if (this.Controls.Find("textBoxParameters", true).Length > 0)
             {
                 var tb = this.Controls.Find("textBoxParameters", true)[0] as TextBox;
                 if (tb != null) parameters = tb.Text;
             }
 
+            // Determine actual icon path
+            string actualIconPath = string.IsNullOrEmpty(textBoxIconPath.Text) ? textBoxPath.Text : textBoxIconPath.Text;
+
             try
             {
-                if (id_item == "0")
+                var groupName = GetGroupNameFromId(id_group);
+                
+                if (existingShortcut == null)
                 {
-                    data.SendQueryWithoutReturn("INSERT INTO \"items\"(id,name,path,icon,groups,parameters) VALUES (NULL,'" + 
-                        textBoxName.Text.Replace("'", "''") + "','" + 
-                        textBoxPath.Text.Replace("'", "''") + "','" + 
-                        iconInfo.Replace("'", "''") + "','" + id_group + "','" + parameters.Replace("'", "''") + "');");
+                    // Creating new shortcut
+                    FileBasedData.CreateShortcut(groupName, textBoxName.Text, textBoxPath.Text, parameters, actualIconPath, selectedIconIndex);
                 }
                 else
                 {
-                    data.SendQueryWithoutReturn("UPDATE items SET name = \"" + textBoxName.Text.Replace("\"", "\"\"") + 
-                        "\", path = \"" + textBoxPath.Text.Replace("\"", "\"\"") + 
-                        "\", icon = \"" + iconInfo.Replace("\"", "\"\"") + "\", parameters = \"" + parameters.Replace("\"", "\"\"") + "\" WHERE id = " + id_item);
+                    // Delete old shortcut if name changed
+                    if (existingShortcut.Name != textBoxName.Text)
+                    {
+                        FileBasedData.DeleteShortcut(groupName, existingShortcut.Name + ".lnk");
+                    }
+                    
+                    // Create updated shortcut
+                    FileBasedData.CreateShortcut(groupName, textBoxName.Text, textBoxPath.Text, parameters, actualIconPath, selectedIconIndex);
                 }
                 
                 this.DialogResult = DialogResult.OK;
@@ -394,20 +391,24 @@ namespace ProgramManagerVC
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error saving item: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Error saving shortcut: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
         private void CheckTextBoxes()
         {
-            if (!string.IsNullOrEmpty(textBoxName.Text) && !string.IsNullOrEmpty(textBoxPath.Text))
-            {
-                buttonOK.Enabled = true;
-            }
-            else
-            {
-                buttonOK.Enabled = false;
-            }
+            bool isValid = !string.IsNullOrEmpty(textBoxName.Text) && 
+                          !string.IsNullOrEmpty(textBoxPath.Text) &&
+                          IsValidFileName(textBoxName.Text);
+            
+            buttonOK.Enabled = isValid;
+        }
+
+        private bool IsValidFileName(string name)
+        {
+            // Check for invalid characters in file names
+            char[] invalidChars = Path.GetInvalidFileNameChars();
+            return !string.IsNullOrWhiteSpace(name) && name.IndexOfAny(invalidChars) == -1;
         }
 
         private void TextBoxName_TextChanged(object sender, EventArgs e)

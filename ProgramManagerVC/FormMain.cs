@@ -7,8 +7,6 @@ using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 using System.IO;
-using System.Data.SQLite;
-using data = ProgramManagerVC.data;
 
 namespace ProgramManagerVC
 {
@@ -117,185 +115,266 @@ namespace ProgramManagerVC
             var activeChild = this.ActiveMdiChild as FormChild;
             if (activeChild != null && activeChild.Tag != null)
             {
-                DataTable existing = data.SendQueryWithReturn("SELECT * FROM settings WHERE key = 'active_window'");
-                if (existing.Rows.Count > 0)
-                {
-                    data.SendQueryWithoutReturn("UPDATE settings SET value = '" + activeChild.Tag + "' WHERE key = 'active_window'");
-                }
-                else
-                {
-                    data.SendQueryWithoutReturn("INSERT INTO settings (id, key, value) VALUES (NULL, 'active_window', '" + activeChild.Tag + "')");
-                }
+                FileBasedData.SaveApplicationSettings("active_window", activeChild.Tag.ToString());
             }
         }
 
         private void InitializeMDI()
         {
-            data.SendQueryWithoutReturn("CREATE TABLE IF NOT EXISTS \"groups\" (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, status INTEGER)");
-            data.SendQueryWithoutReturn("CREATE TABLE IF NOT EXISTS \"items\" (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, path TEXT, icon TEXT, groups INTEGER)");
-            data.SendQueryWithoutReturn("CREATE TABLE IF NOT EXISTS \"settings\" (id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT, value TEXT)");
-            
-            // Ensure 'parameters' column exists on items table (added in newer versions)
-            DataTable itemsSchema = data.SendQueryWithReturn("PRAGMA table_info(items)");
-            bool hasParametersColumn = false;
-            foreach (DataRow row in itemsSchema.Rows)
+            try
             {
-                if (row["name"].ToString() == "parameters") hasParametersColumn = true;
-            }
-            if (!hasParametersColumn)
-                data.SendQueryWithoutReturn("ALTER TABLE items ADD COLUMN parameters TEXT DEFAULT ''");
-
-            DataTable groupsSchema = data.SendQueryWithReturn("PRAGMA table_info(groups)");
-            bool hasXColumn = false;
-            bool hasYColumn = false;
-            bool hasWidthColumn = false;
-            bool hasHeightColumn = false;
-            bool hasIconIndexColumn = false;
-            
-            foreach (DataRow row in groupsSchema.Rows)
-            {
-                string columnName = row["name"].ToString();
-                if (columnName == "x") hasXColumn = true;
-                if (columnName == "y") hasYColumn = true;
-                if (columnName == "width") hasWidthColumn = true;
-                if (columnName == "height") hasHeightColumn = true;
-                if (columnName == "icon_index") hasIconIndexColumn = true;
-            }
-            
-            if (!hasXColumn)
-                data.SendQueryWithoutReturn("ALTER TABLE groups ADD COLUMN x INTEGER DEFAULT 0");
-            if (!hasYColumn)
-                data.SendQueryWithoutReturn("ALTER TABLE groups ADD COLUMN y INTEGER DEFAULT 0");
-            if (!hasWidthColumn)
-                data.SendQueryWithoutReturn("ALTER TABLE groups ADD COLUMN width INTEGER DEFAULT 300");
-            if (!hasHeightColumn)
-                data.SendQueryWithoutReturn("ALTER TABLE groups ADD COLUMN height INTEGER DEFAULT 250");
-            if (!hasIconIndexColumn)
-                data.SendQueryWithoutReturn("ALTER TABLE groups ADD COLUMN icon_index INTEGER DEFAULT 0");
-            
-            // Get active window ID from last session
-            string lastActiveWindowId = "";
-            DataTable activeWindowSetting = data.SendQueryWithReturn("SELECT value FROM settings WHERE key = 'active_window'");
-            if (activeWindowSetting.Rows.Count > 0)
-            {
-                lastActiveWindowId = activeWindowSetting.Rows[0][0].ToString();
-            }
-            
-            DataTable groups = new DataTable();
-            groups = data.SendQueryWithReturn("SELECT * FROM groups ORDER BY icon_index ASC");
-            FormChild windowToActivate = null;
-            
-            if (groups.Rows.Count > 0)
-            {
-                for (int i = 0; i < groups.Rows.Count; i++)
+                // Load the current profile or default to Main
+                var currentProfile = FileBasedData.GetCurrentProfile();
+                var profiles = FileBasedData.GetAllProfiles();
+                
+                // Ensure we have at least the Main profile
+                if (profiles == null || profiles.Count == 0)
                 {
-                    FormChild child = new FormChild();
-                    child.Text = groups.Rows[i][1].ToString();
-                    child.Tag = groups.Rows[i][0].ToString();
-                    child.MdiParent = this;
+                    // Create default Main profile if no profiles exist
+                    var mainGroupsPath = Path.Combine(Application.StartupPath, "Groups");
+                    if (!Directory.Exists(mainGroupsPath))
+                        Directory.CreateDirectory(mainGroupsPath);
                     
-                    if (groups.Columns.Count >= 7 && groups.Rows[i][3] != DBNull.Value)
+                    // Create Main profile
+                    FileBasedData.SaveProfile("Main", mainGroupsPath);
+                    FileBasedData.SetCurrentProfile("Main");
+                    
+                    // Reload profiles
+                    profiles = FileBasedData.GetAllProfiles();
+                    currentProfile = "Main";
+                }
+                
+                // Find active profile, default to first available if current not found
+                var activeProfile = profiles.FirstOrDefault(p => p.Name == currentProfile);
+                if (activeProfile == null)
+                {
+                    activeProfile = profiles.FirstOrDefault();
+                    if (activeProfile == null)
                     {
-                        int x = Convert.ToInt32(groups.Rows[i][3]);
-                        int y = Convert.ToInt32(groups.Rows[i][4]);
-                        int width = Convert.ToInt32(groups.Rows[i][5]);
-                        int height = Convert.ToInt32(groups.Rows[i][6]);
+                        // This should not happen, but handle it gracefully
+                        MessageBox.Show("No profiles available. Creating default Main profile.", 
+                            "Profile Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                    // Update current profile to the fallback
+                    FileBasedData.SetCurrentProfile(activeProfile.Name);
+                }
+                
+                // Set the groups folder based on active profile
+                FileBasedData.SetGroupsFolder(activeProfile.Path);
+
+                // Load all groups from folder structure
+                var groups = FileBasedData.GetAllGroups();
+                
+                // Get last active window
+                string lastActiveWindowId = FileBasedData.LoadApplicationSetting("active_window", "");
+                FormChild windowToActivate = null;
+                
+                if (groups.Count > 0)
+                {
+                    foreach (var groupInfo in groups)
+                    {
+                        FormChild child = new FormChild();
+                        child.Text = groupInfo.Name;
+                        child.Tag = groupInfo.Id;
+                        child.MdiParent = this;
                         
-                        if (width > 0 && height > 0)
+                        // Set window position and size from INI file
+                        if (groupInfo.Width > 0 && groupInfo.Height > 0)
                         {
                             child.StartPosition = FormStartPosition.Manual;
-                            child.Location = new Point(x, y);
-                            child.Size = new Size(width, height);
+                            child.Location = new Point(Math.Max(0, groupInfo.X), Math.Max(0, groupInfo.Y));
+                            child.Size = new Size(Math.Max(300, groupInfo.Width), Math.Max(250, groupInfo.Height));
+                        }
+                        else
+                        {
+                            // Default size and position
+                            child.Size = new Size(400, 300);
+                            child.StartPosition = FormStartPosition.WindowsDefaultLocation;
+                        }
+                        
+                        // Track which window should be activated last
+                        if (groupInfo.Id == lastActiveWindowId)
+                        {
+                            windowToActivate = child;
+                        }
+                        
+                        // Set window state
+                        switch (groupInfo.WindowStatus)
+                        {
+                            case 0: // Minimized
+                                child.Show();
+                                child.WindowState = FormWindowState.Minimized;
+                                break;
+                            case 1: // Normal
+                                child.Show();
+                                child.WindowState = FormWindowState.Normal;
+                                break;
+                            case 2: // Maximized
+                                child.Show();
+                                this.BeginInvoke(new Action(() =>
+                                {
+                                    child.WindowState = FormWindowState.Maximized;
+                                }));
+                                break;
+                            default:
+                                child.Show();
+                                child.WindowState = FormWindowState.Normal;
+                                break;
                         }
                     }
                     
-                    // Track which window should be activated last
-                    if (child.Tag.ToString() == lastActiveWindowId)
-                    {
-                        windowToActivate = child;
-                    }
+                    ArrangeMinimizedIcons();
                     
-                    int windowStatus = Convert.ToInt32(groups.Rows[i][2]);
-                    switch (windowStatus)
+                    // Activate the previously active window last
+                    if (windowToActivate != null && windowToActivate.WindowState != FormWindowState.Minimized)
                     {
-                        case 0: // Minimized
-                            child.Show();
-                            child.WindowState = FormWindowState.Minimized;
-                            // Let FormChild_Resize handle the hiding and icon creation
-                            break;
-                        case 1: // Normal
-                            child.Show();
-                            child.WindowState = FormWindowState.Normal;
-                            break;
-                        case 2: // Maximized
-                            child.Show();
-                            // Small delay to ensure window is fully shown before maximizing
-                            this.BeginInvoke(new Action(() =>
-                            {
-                                child.WindowState = FormWindowState.Maximized;
-                            }));
-                            break;
+                        this.BeginInvoke(new Action(() =>
+                        {
+                            windowToActivate.BringToFront();
+                            windowToActivate.Activate();
+                        }));
+                    }
+                }
+                else
+                {
+                    // Create default Programs group structure
+                    try
+                    {
+                        // Ensure the groups folder exists
+                        if (!Directory.Exists(activeProfile.Path))
+                            Directory.CreateDirectory(activeProfile.Path);
+                            
+                        FileBasedData.CreateGroup("Programs");
+                        
+                        // Create a sample shortcut
+                        var notepadPath = Path.Combine(Environment.SystemDirectory, "notepad.exe");
+                        if (File.Exists(notepadPath))
+                        {
+                            FileBasedData.CreateShortcut("Programs", "Notepad", notepadPath, "", notepadPath, 0);
+                        }
+                        
+                        // Reload to show the new group
+                        this.BeginInvoke(new Action(InitializeMDI));
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Error creating default group: " + ex.Message, "Initialization Error", 
+                            MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     }
                 }
                 
-                ArrangeMinimizedIcons();
-                
-                // Activate the previously active window last (after all windows are created)
-                if (windowToActivate != null && windowToActivate.WindowState != FormWindowState.Minimized)
-                {
-                    this.BeginInvoke(new Action(() =>
-                    {
-                        windowToActivate.BringToFront();
-                        windowToActivate.Activate();
-                    }));
-                }
+                // Update window title to show current profile
+                this.Text = $"Program Manager - {activeProfile.Name}";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error initializing application: " + ex.Message, "Initialization Error", 
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
         private void CloseAllMDIWindows()
         {
+            // Save window states before closing
             foreach (Form frm in this.MdiChildren)
             {
+                if (frm is FormChild childForm)
+                {
+                    SaveChildWindowState(childForm);
+                }
                 frm.Visible = false;
                 frm.Dispose();
             }
         }
 
+        private void SaveChildWindowState(FormChild childForm)
+        {
+            if (childForm.Tag != null)
+            {
+                // Find the corresponding group
+                var groups = FileBasedData.GetAllGroups();
+                var group = groups.FirstOrDefault(g => g.Id == childForm.Tag.ToString());
+                
+                if (group != null)
+                {
+                    // Update group info with current window state
+                    group.Name = childForm.Text;
+                    
+                    if (childForm.WindowState == FormWindowState.Minimized)
+                        group.WindowStatus = 0;
+                    else if (childForm.WindowState == FormWindowState.Maximized)
+                        group.WindowStatus = 2;
+                    else
+                        group.WindowStatus = 1;
+
+                    if (childForm.WindowState == FormWindowState.Normal)
+                    {
+                        group.X = childForm.Location.X;
+                        group.Y = childForm.Location.Y;
+                        group.Width = childForm.Width;
+                        group.Height = childForm.Height;
+                    }
+                    
+                    // Save to INI file
+                    FileBasedData.SaveGroupSettings(group);
+                }
+            }
+        }
+
         private void NewItemToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            using (FormCreateItem createform = new FormCreateItem(this.ActiveMdiChild.Tag.ToString()))
+            if (this.ActiveMdiChild is FormChild activeChild)
             {
-                if (createform.ShowDialog() == DialogResult.OK)
+                using (FormCreateItem createform = new FormCreateItem(activeChild.Tag.ToString()))
                 {
-                    ((FormChild)this.ActiveMdiChild).InitializeItems();
+                    if (createform.ShowDialog() == DialogResult.OK)
+                    {
+                        activeChild.InitializeItems();
+                    }
                 }
             }
         }
 
         private void DeleteToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (((FormChild)this.ActiveMdiChild).listViewMain.SelectedItems.Count > 0)
+            if (this.ActiveMdiChild is FormChild activeChild)
             {
-                if (MessageBox.Show("Do you really want to delete the \"" + ((FormChild)this.ActiveMdiChild).listViewMain.SelectedItems[0].Text + "\" item?",
+                if (activeChild.listViewMain.SelectedItems.Count > 0)
+                {
+                    var selectedItem = activeChild.listViewMain.SelectedItems[0];
+                    if (MessageBox.Show("Do you really want to delete the \"" + selectedItem.Text + "\" item?",
+                                       "Confirm",
+                                       MessageBoxButtons.YesNo,
+                                       MessageBoxIcon.Question) == DialogResult.Yes)
+                    {
+                        // Delete the .lnk file
+                        var groupName = GetGroupNameFromId(activeChild.Tag.ToString());
+                        var shortcutFileName = selectedItem.Text + ".lnk";
+                        FileBasedData.DeleteShortcut(groupName, shortcutFileName);
+                        activeChild.InitializeItems();
+                    }
+                }
+                else
+                {
+                    if (MessageBox.Show("Do you really want to delete \"" + activeChild.Text + "\" group?",
                                    "Confirm",
                                    MessageBoxButtons.YesNo,
                                    MessageBoxIcon.Question) == DialogResult.Yes)
-                {
-                    data.SendQueryWithoutReturn("DELETE FROM \"items\" WHERE id = " + ((FormChild)this.ActiveMdiChild).listViewMain.SelectedItems[0].Tag);
-                    ((FormChild)this.ActiveMdiChild).InitializeItems();
+                    {
+                        var groupName = GetGroupNameFromId(activeChild.Tag.ToString());
+                        FileBasedData.DeleteGroup(groupName);
+                        activeChild.Hide();
+                    }
                 }
             }
-            else
-            {
-                if (MessageBox.Show("Do you really want to delete \"" + this.ActiveMdiChild.Text + "\" group?",
-                               "Confirm",
-                               MessageBoxButtons.YesNo,
-                               MessageBoxIcon.Question) == DialogResult.Yes)
-                {
-                    data.SendQueryWithoutReturn("DELETE FROM \"groups\" WHERE id = " + this.ActiveMdiChild.Tag);
-                    ((FormChild)this.ActiveMdiChild).Hide();
-                }
-            }
+        }
+
+        private string GetGroupNameFromId(string id)
+        {
+            var groups = FileBasedData.GetAllGroups();
+            var group = groups.FirstOrDefault(g => g.Id == id);
+            return group?.Name ?? "";
         }
 
         private void AboutToolStripMenuItem_Click(object sender, EventArgs e)
@@ -327,24 +406,27 @@ namespace ProgramManagerVC
 
         private void PropertiesToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (((FormChild)this.ActiveMdiChild).listViewMain.SelectedItems.Count > 0)
+            if (this.ActiveMdiChild is FormChild activeChild)
             {
-                using (FormCreateItem createform = new FormCreateItem(this.ActiveMdiChild.Tag.ToString(), 
-                    ((FormChild)this.ActiveMdiChild).listViewMain.SelectedItems[0].Tag.ToString()))
+                if (activeChild.listViewMain.SelectedItems.Count > 0)
                 {
-                    if (createform.ShowDialog() == DialogResult.OK)
+                    var selectedItem = activeChild.listViewMain.SelectedItems[0];
+                    using (FormCreateItem createform = new FormCreateItem(activeChild.Tag.ToString(), selectedItem.Text))
                     {
-                        ((FormChild)this.ActiveMdiChild).InitializeItems();
+                        if (createform.ShowDialog() == DialogResult.OK)
+                        {
+                            activeChild.InitializeItems();
+                        }
                     }
                 }
-            }
-            else
-            {
-                Form createForm = new FormCreateGroup(this.ActiveMdiChild.Tag.ToString());
-                if (createForm.ShowDialog() == DialogResult.OK)
+                else
                 {
-                    CloseAllMDIWindows();
-                    InitializeMDI();
+                    Form createForm = new FormCreateGroup(activeChild.Tag.ToString());
+                    if (createForm.ShowDialog() == DialogResult.OK)
+                    {
+                        CloseAllMDIWindows();
+                        InitializeMDI();
+                    }
                 }
             }
         }
@@ -374,31 +456,6 @@ namespace ProgramManagerVC
             formSettings.ShowDialog();
             if(formSettings.DialogResult == DialogResult.OK)
             InitializeTitle();
-        }
-
-        private void convertFolderToGroupToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            DialogResult result = folderBrowserDialogCovnerter.ShowDialog();
-            if (result == DialogResult.OK)
-            {
-                string path = folderBrowserDialogCovnerter.SelectedPath;
-                string[] list = Directory.GetFiles(path, "*.lnk");
-                string name = path.Replace(Path.GetDirectoryName(path) + Path.DirectorySeparatorChar, "");
-
-                data.SendQueryWithoutReturn("INSERT INTO groups (id,name,status) VALUES (NULL,\"" + name + "\",1)");
-
-                DataTable group = new DataTable();
-                group = data.SendQueryWithReturn("SELECT * FROM groups WHERE name = \"" + name + "\";");
-
-                foreach (string Link in list)
-                {
-                    string itemName = Path.GetFileNameWithoutExtension(Link);
-                    data.SendQueryWithoutReturn("INSERT INTO \"items\"(id,name,path,icon,groups) VALUES (NULL,'" + itemName + "','" + Link + "','" + Link + "','" + group.Rows[0][0].ToString() + "');");
-                }
-
-                CloseAllMDIWindows();
-                InitializeMDI();
-            }
         }
 
         private void windowsToolStripMenuItem_DropDownOpening(object sender, EventArgs e)
@@ -435,58 +492,25 @@ namespace ProgramManagerVC
             }
         }
 
-        private int SafeInt(object o)
-        {
-            int v;
-            if (o == null || o == DBNull.Value) return 0;
-            if (!int.TryParse(o.ToString(), out v)) return 0;
-            return v;
-        }
-        
         private void LoadWindowSizeAndPosition()
         {
-            DataTable settings = data.SendQueryWithReturn("SELECT * FROM settings WHERE key IN ('window_width', 'window_height', 'window_x', 'window_y')");
-            if (settings.Rows.Count > 0)
+            var widthStr = FileBasedData.LoadApplicationSetting("window_width");
+            var heightStr = FileBasedData.LoadApplicationSetting("window_height");
+            var xStr = FileBasedData.LoadApplicationSetting("window_x");
+            var yStr = FileBasedData.LoadApplicationSetting("window_y");
+            
+            if (int.TryParse(widthStr, out int width) && int.TryParse(heightStr, out int height) && width > 0 && height > 0)
             {
-                int width = 0;
-                int height = 0;
-                int x = -1;
-                int y = -1;
-                
-                foreach (DataRow row in settings.Rows)
+                this.Width = width;
+                this.Height = height;
+            }
+            
+            if (int.TryParse(xStr, out int x) && int.TryParse(yStr, out int y) && x >= 0 && y >= 0)
+            {
+                if (IsLocationOnScreen(x, y, this.Width, this.Height))
                 {
-                    string key = row[1].ToString();
-                    if (key == "window_width")
-                    {
-                        int.TryParse(row[2].ToString(), out width);
-                    }
-                    else if (key == "window_height")
-                    {
-                        int.TryParse(row[2].ToString(), out height);
-                    }
-                    else if (key == "window_x")
-                    {
-                        int.TryParse(row[2].ToString(), out x);
-                    }
-                    else if (key == "window_y")
-                    {
-                        int.TryParse(row[2].ToString(), out y);
-                    }
-                }
-                
-                if (width > 0 && height > 0)
-                {
-                    this.Width = width;
-                    this.Height = height;
-                }
-                
-                if (x >= 0 && y >= 0)
-                {
-                    if (IsLocationOnScreen(x, y, this.Width, this.Height))
-                    {
-                        this.StartPosition = FormStartPosition.Manual;
-                        this.Location = new Point(x, y);
-                    }
+                    this.StartPosition = FormStartPosition.Manual;
+                    this.Location = new Point(x, y);
                 }
             }
         }
@@ -514,45 +538,10 @@ namespace ProgramManagerVC
         {
             if (this.WindowState == FormWindowState.Normal)
             {
-                DataTable existingWidth = data.SendQueryWithReturn("SELECT * FROM settings WHERE key = 'window_width'");
-                if (existingWidth.Rows.Count > 0)
-                {
-                    data.SendQueryWithoutReturn("UPDATE settings SET value = '" + this.Width + "' WHERE key = 'window_width'");
-                }
-                else
-                {
-                    data.SendQueryWithoutReturn("INSERT INTO settings (id, key, value) VALUES (NULL, 'window_width', '" + this.Width + "')");
-                }
-
-                DataTable existingHeight = data.SendQueryWithReturn("SELECT * FROM settings WHERE key = 'window_height'");
-                if (existingHeight.Rows.Count > 0)
-                {
-                    data.SendQueryWithoutReturn("UPDATE settings SET value = '" + this.Height + "' WHERE key = 'window_height'");
-                }
-                else
-                {
-                    data.SendQueryWithoutReturn("INSERT INTO settings (id, key, value) VALUES (NULL, 'window_height', '" + this.Height + "')");
-                }
-
-                DataTable existingX = data.SendQueryWithReturn("SELECT * FROM settings WHERE key = 'window_x'");
-                if (existingX.Rows.Count > 0)
-                {
-                    data.SendQueryWithoutReturn("UPDATE settings SET value = '" + this.Location.X + "' WHERE key = 'window_x'");
-                }
-                else
-                {
-                    data.SendQueryWithoutReturn("INSERT INTO settings (id, key, value) VALUES (NULL, 'window_x', '" + this.Location.X + "')");
-                }
-
-                DataTable existingY = data.SendQueryWithReturn("SELECT * FROM settings WHERE key = 'window_y'");
-                if (existingY.Rows.Count > 0)
-                {
-                    data.SendQueryWithoutReturn("UPDATE settings SET value = '" + this.Location.Y + "' WHERE key = 'window_y'");
-                }
-                else
-                {
-                    data.SendQueryWithoutReturn("INSERT INTO settings (id, key, value) VALUES (NULL, 'window_y', '" + this.Location.Y + "')");
-                }
+                FileBasedData.SaveApplicationSettings("window_width", this.Width.ToString());
+                FileBasedData.SaveApplicationSettings("window_height", this.Height.ToString());
+                FileBasedData.SaveApplicationSettings("window_x", this.Location.X.ToString());
+                FileBasedData.SaveApplicationSettings("window_y", this.Location.Y.ToString());
             }
         }
 
@@ -571,6 +560,7 @@ namespace ProgramManagerVC
             ArrangeMinimizedIcons();
         }
 
+        // Rest of the minimized icon management code remains the same...
         public void ArrangeMinimizedIcons()
         {
             var host = GetIconHost();
@@ -587,22 +577,20 @@ namespace ProgramManagerVC
 
             int spacing = 8;
             int iconWidth = 64;
-            int iconHeight = minimizedIcons.Count > 0 ? minimizedIcons[0].Height : 64; // use actual control height
+            int iconHeight = minimizedIcons.Count > 0 ? minimizedIcons[0].Height : 64;
 
             int availableWidth = Math.Max(0, host.ClientSize.Width - (spacing * 2));
             int iconsPerRow = Math.Max(1, availableWidth / (iconWidth + spacing));
 
-            // Calculate rows and total height needed
             int totalIcons = minimizedIcons.Count;
             int rows = Math.Max(1, (int)Math.Ceiling(totalIcons / (double)iconsPerRow));
-            int totalHeightNeeded = rows * (iconHeight + spacing) + spacing; // including top/bottom spacing
+            int totalHeightNeeded = rows * (iconHeight + spacing) + spacing;
 
-            // Determine starting Y so that all rows are fully visible (no overflow below)
             int startX = spacing;
             int startY = host.ClientSize.Height - totalHeightNeeded;
             if (startY < spacing)
             {
-                startY = spacing; // clamp to keep spacing at top
+                startY = spacing;
             }
 
             int currentX = startX;
@@ -626,14 +614,12 @@ namespace ProgramManagerVC
 
                     if (placedInRow >= iconsPerRow)
                     {
-                        // move to next row up
                         rowCount++;
                         placedInRow = 0;
                         currentX = startX;
-                        currentY += iconHeight + spacing; // layout from top to bottom within startY block
+                        currentY += iconHeight + spacing;
                         if (currentY + iconHeight > host.ClientSize.Height - spacing)
                         {
-                            // prevent partial clipping bottom
                             currentY = Math.Max(spacing, host.ClientSize.Height - iconHeight - spacing);
                         }
                     }
@@ -650,19 +636,9 @@ namespace ProgramManagerVC
             MinimizedIcon existingIcon = minimizedIcons.FirstOrDefault(i => i.AssociatedForm == form);
             if (existingIcon == null)
             {
-                int iconIndex = GetIconIndexForForm(form);
-
-                MinimizedIcon icon = new MinimizedIcon(form, this); // Pass 'this' (FormMain) to constructor
+                MinimizedIcon icon = new MinimizedIcon(form, this);
                 icon.Font = new Font("MS Sans Serif", 8F);
-
-                if (iconIndex >= 0 && iconIndex < minimizedIcons.Count)
-                {
-                    minimizedIcons.Insert(iconIndex, icon);
-                }
-                else
-                {
-                    minimizedIcons.Add(icon);
-                }
+                minimizedIcons.Add(icon);
 
                 var host = GetIconHost();
                 host.Controls.Add(icon);
@@ -688,12 +664,9 @@ namespace ProgramManagerVC
             MinimizedIcon icon = minimizedIcons.FirstOrDefault(i => i.AssociatedForm == form);
             if (icon != null)
             {
-                int index = minimizedIcons.IndexOf(icon);
-                SaveIconIndex(form, index);
-
                 if (icon == selectedIcon)
                 {
-                    selectedIcon = null; // clear selection if removed
+                    selectedIcon = null;
                 }
 
                 icon.Parent?.Controls.Remove(icon);
@@ -712,33 +685,176 @@ namespace ProgramManagerVC
             {
                 minimizedIcons[index1] = icon2;
                 minimizedIcons[index2] = icon1;
-
-                SaveIconIndex(icon1.AssociatedForm, index2);
-                SaveIconIndex(icon2.AssociatedForm, index1);
-
                 ArrangeMinimizedIcons();
             }
         }
 
-        private int GetIconIndexForForm(Form form)
+        #region Profile Menu Handlers
+
+        private void profileToolStripMenuItem_DropDownOpening(object sender, EventArgs e)
         {
-            if (form.Tag == null) return -1;
-            
-            DataTable result = data.SendQueryWithReturn("SELECT icon_index FROM groups WHERE id = " + form.Tag);
-            if (result.Rows.Count > 0 && result.Rows[0][0] != DBNull.Value)
+            // Clear existing profile items (keep Main, separator, Add Profile, Delete Profile)
+            var itemsToRemove = new List<ToolStripItem>();
+            for (int i = 0; i < profileToolStripMenuItem.DropDownItems.Count; i++)
             {
-                return Convert.ToInt32(result.Rows[0][0]);
+                var item = profileToolStripMenuItem.DropDownItems[i];
+                if (item != mainProfileToolStripMenuItem && 
+                    item != toolStripMenuItem3 && 
+                    item != addProfileToolStripMenuItem && 
+                    item != deleteProfileToolStripMenuItem)
+                {
+                    itemsToRemove.Add(item);
+                }
             }
             
-            return minimizedIcons.Count;
+            foreach (var item in itemsToRemove)
+            {
+                profileToolStripMenuItem.DropDownItems.Remove(item);
+            }
+            
+            // Add custom profiles
+            var profiles = FileBasedData.GetAllProfiles();
+            var currentProfile = FileBasedData.GetCurrentProfile();
+            
+            // Mark current profile
+            mainProfileToolStripMenuItem.Checked = (currentProfile == "Main");
+            
+            // Insert custom profiles after Main but before separator
+            int insertIndex = 1; // After Main
+            
+            foreach (var profile in profiles.Where(p => p.Name != "Main"))
+            {
+                var profileItem = new ToolStripMenuItem(profile.Name);
+                profileItem.Checked = (currentProfile == profile.Name);
+                profileItem.Click += (s, evt) => LoadProfile(profile.Name);
+                profileToolStripMenuItem.DropDownItems.Insert(insertIndex++, profileItem);
+            }
+            
+            // Enable/disable Delete Profile based on current selection
+            deleteProfileToolStripMenuItem.Enabled = (currentProfile != "Main");
         }
 
-        private void SaveIconIndex(Form form, int index)
+        private void mainProfileToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (form.Tag != null)
+            LoadProfile("Main");
+        }
+
+        private void addProfileToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            DialogResult result = folderBrowserDialogProfile.ShowDialog();
+            if (result == DialogResult.OK)
             {
-                data.SendQueryWithoutReturn("UPDATE groups SET icon_index = " + index + " WHERE id = " + form.Tag);
+                string selectedPath = folderBrowserDialogProfile.SelectedPath;
+                
+                // Ask for profile name using a simple input form
+                string profileName = ShowInputDialog("Enter a name for this profile:", 
+                    "Profile Name", Path.GetFileName(selectedPath));
+                
+                if (!string.IsNullOrEmpty(profileName))
+                {
+                    try
+                    {
+                        // Save the profile
+                        FileBasedData.SaveProfile(profileName, selectedPath);
+                        
+                        // Switch to the new profile
+                        LoadProfile(profileName);
+                        
+                        MessageBox.Show($"Profile '{profileName}' added successfully!", 
+                            "Profile Added", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Error adding profile: {ex.Message}", 
+                            "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
             }
         }
+
+        private string ShowInputDialog(string prompt, string title, string defaultValue = "")
+        {
+            Form inputForm = new Form()
+            {
+                Width = 400,
+                Height = 150,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                Text = title,
+                StartPosition = FormStartPosition.CenterParent,
+                MaximizeBox = false,
+                MinimizeBox = false
+            };
+            
+            Label lblPrompt = new Label() { Left = 15, Top = 20, Text = prompt, Width = 350 };
+            TextBox txtInput = new TextBox() { Left = 15, Top = 45, Width = 350, Text = defaultValue };
+            Button btnOK = new Button() { Text = "OK", Left = 235, Width = 60, Top = 75, DialogResult = DialogResult.OK };
+            Button btnCancel = new Button() { Text = "Cancel", Left = 305, Width = 60, Top = 75, DialogResult = DialogResult.Cancel };
+            
+            inputForm.Controls.Add(lblPrompt);
+            inputForm.Controls.Add(txtInput);
+            inputForm.Controls.Add(btnOK);
+            inputForm.Controls.Add(btnCancel);
+            inputForm.AcceptButton = btnOK;
+            inputForm.CancelButton = btnCancel;
+            
+            return inputForm.ShowDialog(this) == DialogResult.OK ? txtInput.Text : "";
+        }
+
+        private void deleteProfileToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var currentProfile = FileBasedData.GetCurrentProfile();
+            
+            if (currentProfile == "Main")
+            {
+                MessageBox.Show("Cannot delete the Main profile.", 
+                    "Cannot Delete", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            
+            if (MessageBox.Show($"Are you sure you want to delete the '{currentProfile}' profile?\n\nThis will not delete the actual files, only the profile reference.", 
+                "Confirm Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+            {
+                try
+                {
+                    FileBasedData.DeleteProfile(currentProfile);
+                    
+                    // Switch back to Main profile
+                    LoadProfile("Main");
+                    
+                    MessageBox.Show($"Profile '{currentProfile}' deleted successfully.", 
+                        "Profile Deleted", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error deleting profile: {ex.Message}", 
+                        "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        private void LoadProfile(string profileName)
+        {
+            try
+            {
+                // Set current profile
+                FileBasedData.SetCurrentProfile(profileName);
+                
+                // Close all existing windows
+                CloseAllMDIWindows();
+                
+                // Reload the application with the new profile
+                InitializeMDI();
+                
+                // Update window title
+                this.Text = $"Program Manager - {profileName}";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading profile '{profileName}': {ex.Message}", 
+                    "Load Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        #endregion
     }
 }
