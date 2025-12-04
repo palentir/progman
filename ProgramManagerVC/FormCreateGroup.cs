@@ -65,7 +65,21 @@ namespace ProgramManagerVC
 
         private void TextBoxName_TextChanged(object sender, EventArgs e)
         {
-            buttonOK.Enabled = !string.IsNullOrEmpty(textBoxName.Text) && IsValidFolderName(textBoxName.Text);
+            bool isValid = !string.IsNullOrEmpty(textBoxName.Text) && 
+                          IsValidFolderName(textBoxName.Text) &&
+                          !IsReservedGroupName(textBoxName.Text);
+            
+            buttonOK.Enabled = isValid;
+            
+            // Show warning if using reserved name
+            if (!string.IsNullOrEmpty(textBoxName.Text) && IsReservedGroupName(textBoxName.Text))
+            {
+                textBoxName.BackColor = Color.LightCoral;
+            }
+            else if (!string.IsNullOrEmpty(textBoxName.Text) && IsValidFolderName(textBoxName.Text))
+            {
+                textBoxName.BackColor = SystemColors.Window;
+            }
         }
 
         private bool IsValidFolderName(string name)
@@ -73,6 +87,12 @@ namespace ProgramManagerVC
             // Check for invalid characters in folder names
             char[] invalidChars = Path.GetInvalidFileNameChars();
             return !string.IsNullOrWhiteSpace(name) && name.IndexOfAny(invalidChars) == -1;
+        }
+        
+        private bool IsReservedGroupName(string name)
+        {
+            // Prevent creating groups with reserved names
+            return string.Equals(name, "Programs", StringComparison.OrdinalIgnoreCase);
         }
 
         private void textBoxName_KeyUp(object sender, KeyEventArgs e)

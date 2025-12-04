@@ -51,6 +51,40 @@ namespace ProgramManagerVC
             
             previousWindowState = this.WindowState;
             this.Resize += FormChild_Resize;
+            
+            // Hook up the ListMenu opening event to control delete button
+            this.ListMenu.Opening += ListMenu_Opening;
+            
+            // Enable drag & drop for the ListView
+            listViewMain.AllowDrop = true;
+            listViewMain.ItemDrag += ListViewMain_ItemDrag;
+            listViewMain.DragEnter += ListViewMain_DragEnter;
+            listViewMain.DragDrop += ListViewMain_DragDrop;
+        }
+        
+        private void ListMenu_Opening(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            // Disable delete for protected groups
+            string groupName = this.Text;
+            bool isProtected = IsProtectedGroup(groupName);
+            
+            deleteToolStripMenuItem1.Enabled = !isProtected;
+        }
+        
+        private bool IsProtectedGroup(string groupName)
+        {
+            // Protect Default profile built-in groups and Start Menu groups
+            var currentProfile = FileBasedData.GetCurrentProfile();
+            
+            if (currentProfile == "Default")
+            {
+                // In Default profile, protect "Default", "Programs", and "Startup"
+                return groupName == "Default" || 
+                       groupName == "Programs" || 
+                       groupName == "Startup";
+            }
+            
+            return false;
         }
 
         private void FormChild_Resize(object sender, EventArgs e)
@@ -467,21 +501,30 @@ namespace ProgramManagerVC
             if (listViewMain.SelectedItems.Count > 0)
             {
                 var selectedItem = listViewMain.SelectedItems[0];
-                if (MessageBox.Show("Do you really want to delete the \"" + selectedItem.Text + "\" item?",
-                                       "Confirm",
+                var shortcutInfo = (ShortcutInfo)selectedItem.Tag;
+                
+                // Show confirmation with file name
+                string message = $"Are you sure you want to permanently delete the file:\n\n{selectedItem.Text}.lnk";
+                
+                if (MessageBox.Show(message, "Confirm Delete",
                                        MessageBoxButtons.YesNo,
                                        MessageBoxIcon.Question) == DialogResult.Yes) 
                 {
-                    var groupName = GetGroupNameFromId(this.Tag?.ToString() ?? "");
-                    var shortcutInfo = (ShortcutInfo)selectedItem.Tag;
-                    
-                    // Delete the .lnk file
-                    if (File.Exists(shortcutInfo.ShortcutPath))
+                    try
                     {
-                        File.Delete(shortcutInfo.ShortcutPath);
+                        // Delete the .lnk file
+                        if (File.Exists(shortcutInfo.ShortcutPath))
+                        {
+                            File.Delete(shortcutInfo.ShortcutPath);
+                        }
+                        
+                        InitializeItems();
                     }
-                    
-                    InitializeItems();
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Error deleting file: {ex.Message}",
+                            "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
                 }
             }
         }
@@ -529,15 +572,158 @@ namespace ProgramManagerVC
 
         private void deleteToolStripMenuItem1_Click(object sender, EventArgs e)
         {
-            if (MessageBox.Show("Do you really want to delete \"" + this.Text + "\" group?",
-                               "Confirm",
-                               MessageBoxButtons.YesNo,
-                               MessageBoxIcon.Question) == DialogResult.Yes)
+            var groupName = GetGroupNameFromId(this.Tag?.ToString() ?? "");
+            
+            // Special handling for Programs group
+            if (groupName == "Programs")
             {
+                var profilePath = FileBasedData.GetGroupsFolder();
+                string message = $"Are you sure you want to delete all shortcuts in:\n\n{profilePath}";
+                
+                if (MessageBox.Show(message, "Confirm Delete All Shortcuts",
+                                   MessageBoxButtons.YesNo,
+                                   MessageBoxIcon.Question) == DialogResult.Yes)
+                {
+                    try
+                    {
+                        // Delete all .lnk files in the root of the profile folder
+                        var rootLnkFiles = Directory.GetFiles(profilePath, "*.lnk", SearchOption.TopDirectoryOnly);
+                        foreach (var lnkFile in rootLnkFiles)
+                        {
+                            File.Delete(lnkFile);
+                        }
+                        
+                        InitializeItems();
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Error deleting shortcuts: {ex.Message}",
+                            "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
+            else
+            {
+                // Regular group deletion
+                string message = $"Are you sure you want to permanently delete the folder:\n\n{groupName}";
+                
+                if (MessageBox.Show(message, "Confirm Delete Folder",
+                                   MessageBoxButtons.YesNo,
+                                   MessageBoxIcon.Question) == DialogResult.Yes)
+                {
+                    try
+                    {
+                        FileBasedData.DeleteGroup(groupName);
+                        this.Hide();
+                        this.DestroyHandle();
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Error deleting group: {ex.Message}",
+                            "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
+        }
+
+        private void ListViewMain_ItemDrag(object sender, ItemDragEventArgs e)
+        {
+            if (e.Item is ListViewItem item && item.Tag is ShortcutInfo shortcut)
+            {
+                // Create a file collection for dragging out
+                var fileCollection = new System.Collections.Specialized.StringCollection();
+                fileCollection.Add(shortcut.ShortcutPath);
+                
+                var dataObject = new DataObject();
+                dataObject.SetFileDropList(fileCollection);
+                
+                listViewMain.DoDragDrop(dataObject, DragDropEffects.Copy);
+            }
+        }
+        
+        private void ListViewMain_DragEnter(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                e.Effect = DragDropEffects.Copy;
+            }
+            else
+            {
+                e.Effect = DragDropEffects.None;
+            }
+        }
+        
+        private void ListViewMain_DragDrop(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                string[] droppedItems = (string[])e.Data.GetData(DataFormats.FileDrop);
                 var groupName = GetGroupNameFromId(this.Tag?.ToString() ?? "");
-                FileBasedData.DeleteGroup(groupName);
-                this.Hide();
-                this.DestroyHandle();
+                
+                if (string.IsNullOrEmpty(groupName))
+                    return;
+                
+                foreach (string itemPath in droppedItems)
+                {
+                    try
+                    {
+                        if (File.Exists(itemPath))
+                        {
+                            // It's a file
+                            string fileName = Path.GetFileName(itemPath);
+                            string extension = Path.GetExtension(itemPath).ToLower();
+                            
+                            if (extension == ".lnk")
+                            {
+                                // Copy .lnk file directly
+                                var destPath = Path.Combine(FileBasedData.GetGroupsFolder(), groupName, fileName);
+                                if (groupName == "Programs")
+                                {
+                                    // For Programs group, copy to root if no subfolder exists
+                                    var groupFolder = Path.Combine(FileBasedData.GetGroupsFolder(), groupName);
+                                    if (!Directory.Exists(groupFolder))
+                                        destPath = Path.Combine(FileBasedData.GetGroupsFolder(), fileName);
+                                }
+                                
+                                File.Copy(itemPath, destPath, true);
+                            }
+                            else
+                            {
+                                // Create shortcut for the file
+                                string shortcutName = Path.GetFileNameWithoutExtension(fileName);
+                                FileBasedData.CreateShortcut(groupName, shortcutName, itemPath, "", itemPath, 0);
+                            }
+                        }
+                        else if (Directory.Exists(itemPath))
+                        {
+                            // It's a folder - copy all .lnk files from it
+                            string folderName = Path.GetDirectoryName(itemPath);
+                            var lnkFiles = Directory.GetFiles(itemPath, "*.lnk", SearchOption.AllDirectories);
+                            
+                            foreach (var lnkFile in lnkFiles)
+                            {
+                                string lnkFileName = Path.GetFileName(lnkFile);
+                                var destPath = Path.Combine(FileBasedData.GetGroupsFolder(), groupName, lnkFileName);
+                                if (groupName == "Programs")
+                                {
+                                    var groupFolder = Path.Combine(FileBasedData.GetGroupsFolder(), groupName);
+                                    if (!Directory.Exists(groupFolder))
+                                        destPath = Path.Combine(FileBasedData.GetGroupsFolder(), lnkFileName);
+                                }
+                                
+                                File.Copy(lnkFile, destPath, true);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Error copying {Path.GetFileName(itemPath)}: {ex.Message}",
+                            "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+                
+                // Refresh the items list
+                InitializeItems();
             }
         }
     }

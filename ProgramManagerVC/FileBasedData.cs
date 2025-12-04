@@ -15,7 +15,7 @@ namespace ProgramManagerVC
     /// </summary>
     public static class FileBasedData
     {
-        private static string currentGroupsFolder = Path.Combine(Application.StartupPath, "Groups");
+        private static string currentGroupsFolder = Path.Combine(Application.StartupPath, "Programs");
         
         /// <summary>
         /// Sets the groups folder to a custom location
@@ -56,10 +56,12 @@ namespace ProgramManagerVC
             // First, try to load from profile INI
             var profileGroups = GetGroupsFromProfileIni();
             
-            // Check for .lnk files in the root of the groups folder
+            // Check for .lnk files in the root of the groups folder OR if Programs subfolder exists
             var rootLnkFiles = Directory.GetFiles(currentGroupsFolder, "*.lnk", SearchOption.TopDirectoryOnly);
+            var programsSubfolder = Path.Combine(currentGroupsFolder, "Programs");
+            bool programsFolderExists = Directory.Exists(programsSubfolder);
             
-            if (rootLnkFiles.Length > 0)
+            if (rootLnkFiles.Length > 0 || programsFolderExists)
             {
                 // Check if Programs group already exists in profile
                 var programsGroup = profileGroups.FirstOrDefault(g => g.Name == "Programs");
@@ -81,26 +83,34 @@ namespace ProgramManagerVC
                     
                     // Save to profile INI
                     SaveGroupSettings(programsGroup);
-                    groups.Add(programsGroup);
                 }
-                else
+                groups.Add(programsGroup);
+            }
+            else
+            {
+                // Still add Programs group from profile if it exists
+                var programsGroup = profileGroups.FirstOrDefault(g => g.Name == "Programs");
+                if (programsGroup != null)
                 {
                     groups.Add(programsGroup);
                 }
             }
 
-            // Get subfolder groups and ensure they're in the profile INI
-            var directories = Directory.GetDirectories(currentGroupsFolder);
+            // Get subfolder groups and ensure they're in the profile INI (exclude "Programs" subfolder)
+            var directories = Directory.GetDirectories(currentGroupsFolder)
+                .Where(d => !string.Equals(Path.GetFileName(d), "Programs", StringComparison.OrdinalIgnoreCase));
             
             foreach (var directory in directories)
             {
                 var dirInfo = new DirectoryInfo(directory);
-                var existingGroup = profileGroups.FirstOrDefault(g => g.Name == dirInfo.Name);
+                var existingGroup = profileGroups.FirstOrDefault(g => 
+                    string.Equals(g.Name, dirInfo.Name, StringComparison.OrdinalIgnoreCase) && 
+                    g.Name != "Programs");
                 
                 if (existingGroup != null)
                 {
                     // Use existing group from profile INI
-                    if (!groups.Any(g => g.Name == existingGroup.Name))
+                    if (!groups.Any(g => string.Equals(g.Name, existingGroup.Name, StringComparison.OrdinalIgnoreCase)))
                     {
                         groups.Add(existingGroup);
                     }
@@ -397,8 +407,19 @@ namespace ProgramManagerVC
         {
             var currentProfile = GetCurrentProfile();
             var profileIniPath = Path.Combine(Application.StartupPath, currentProfile + ".ini");
-            var folderName = Path.GetFileName(groupInfo.FolderPath);
-            var sectionName = $"Group_{folderName}";
+            
+            // For Programs group, always use "Group_Programs" section
+            // For other groups, use the folder name
+            string sectionName;
+            if (groupInfo.Name == "Programs")
+            {
+                sectionName = "Group_Programs";
+            }
+            else
+            {
+                var folderName = Path.GetFileName(groupInfo.FolderPath);
+                sectionName = $"Group_{folderName}";
+            }
             
             WriteIniValue(profileIniPath, sectionName, "Status", groupInfo.WindowStatus.ToString());
             WriteIniValue(profileIniPath, sectionName, "X", groupInfo.X.ToString());
@@ -441,7 +462,7 @@ namespace ProgramManagerVC
         /// </summary>
         public static void DeleteProfileIni(string profileName)
         {
-            if (profileName == "Main") return; // Cannot delete Main profile
+            if (profileName == "Default") return; // Cannot delete Default profile
             
             var profileIniPath = Path.Combine(Application.StartupPath, profileName + ".ini");
             if (File.Exists(profileIniPath))
@@ -471,14 +492,25 @@ namespace ProgramManagerVC
             
             foreach (var sectionName in allSections.Where(s => s.StartsWith("Group_")))
             {
-                var groupName = sectionName.Substring(6); // Remove "Group_" prefix
-                var savedName = ReadIniString(profileIniPath, sectionName, "Name", groupName);
+                var groupFolderName = sectionName.Substring(6); // Remove "Group_" prefix
+                var savedName = ReadIniString(profileIniPath, sectionName, "Name", groupFolderName);
+                
+                // Determine folder path - Programs group uses root folder
+                string folderPath;
+                if (savedName == "Programs" || groupFolderName == "Programs")
+                {
+                    folderPath = GetGroupsFolder();
+                }
+                else
+                {
+                    folderPath = Path.Combine(GetGroupsFolder(), groupFolderName);
+                }
                 
                 var groupInfo = new GroupInfo
                 {
                     Id = groupId.ToString(),
                     Name = savedName,
-                    FolderPath = Path.Combine(GetGroupsFolder(), groupName),
+                    FolderPath = folderPath,
                     WindowStatus = ReadIniInt(profileIniPath, sectionName, "Status", 1),
                     X = ReadIniInt(profileIniPath, sectionName, "X", 100),
                     Y = ReadIniInt(profileIniPath, sectionName, "Y", 100),
@@ -774,7 +806,7 @@ namespace ProgramManagerVC
         /// </summary>
         public static void DeleteProfile(string name)
         {
-            if (name == "Main") return; // Cannot delete Main profile
+            if (name == "Default") return; // Cannot delete Default profile
             
             var progmanIni = Path.Combine(Application.StartupPath, "Progman.ini");
             WriteIniValue(progmanIni, "Profiles", name, ""); // Empty value effectively deletes
@@ -818,11 +850,11 @@ namespace ProgramManagerVC
             var profiles = new List<ProfileInfo>();
             var progmanIni = Path.Combine(Application.StartupPath, "Progman.ini");
             
-            // Always add the Main profile first
+            // Always add the Default profile first
             profiles.Add(new ProfileInfo
             {
-                Name = "Main",
-                Path = Path.Combine(Application.StartupPath, "Groups"),
+                Name = "Default",
+                Path = Path.Combine(Application.StartupPath, "Programs"),
                 IsDefault = true
             });
             
@@ -852,7 +884,7 @@ namespace ProgramManagerVC
                 foreach (var profile in profilesSection)
                 {
                     // Skip if it's one of our default profiles
-                    if (profile.Key != "Main" && 
+                    if (profile.Key != "Default" && 
                         profile.Key != "Start Menu (All Users)" && 
                         profile.Key != "Start Menu (Current User)" && 
                         !string.IsNullOrEmpty(profile.Value))
@@ -875,7 +907,7 @@ namespace ProgramManagerVC
         /// </summary>
         public static string GetCurrentProfile()
         {
-            return LoadApplicationSetting("current_profile", "Main");
+            return LoadApplicationSetting("current_profile", "Default");
         }
 
         #endregion
