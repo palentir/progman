@@ -21,7 +21,9 @@ namespace ProgramManagerVC
         {
             try
             {
-                Process.Start(textBoxPath.Text);
+                // Expand environment variables before executing
+                string expandedPath = FileBasedData.ExpandEnvironmentVariables(textBoxPath.Text);
+                Process.Start(expandedPath);
             } 
             catch (Exception ex)
             { 

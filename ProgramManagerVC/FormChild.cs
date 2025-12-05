@@ -118,21 +118,29 @@ namespace ProgramManagerVC
             {
                 var shortcutInfo = (ShortcutInfo)listViewMain.SelectedItems[0].Tag;
                 
+                // Expand environment variables before checking file existence
+                string expandedTargetPath = FileBasedData.ExpandEnvironmentVariables(shortcutInfo.TargetPath);
+                
                 // Check if file exists before trying to launch it
-                if (System.IO.File.Exists(shortcutInfo.TargetPath))
+                if (System.IO.File.Exists(expandedTargetPath))
                 {
                     try
                     {
                         var psi = new ProcessStartInfo();
-                        psi.FileName = shortcutInfo.TargetPath;
-                        psi.Arguments = shortcutInfo.Arguments ?? "";
-                        psi.WorkingDirectory = shortcutInfo.WorkingDirectory ?? Path.GetDirectoryName(shortcutInfo.TargetPath);
+                        psi.FileName = expandedTargetPath;
+                        psi.Arguments = FileBasedData.ExpandEnvironmentVariables(shortcutInfo.Arguments ?? "");
+                        
+                        string expandedWorkingDir = FileBasedData.ExpandEnvironmentVariables(shortcutInfo.WorkingDirectory ?? "");
+                        if (string.IsNullOrEmpty(expandedWorkingDir))
+                            expandedWorkingDir = Path.GetDirectoryName(expandedTargetPath);
+                        
+                        psi.WorkingDirectory = expandedWorkingDir;
                         psi.UseShellExecute = true;
                         Process.Start(psi);
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show("Could not open file:\n\n" + shortcutInfo.TargetPath + 
+                        MessageBox.Show("Could not open file:\n\n" + expandedTargetPath + 
                                        "\n\nError: " + ex.Message, 
                                        "Error Opening File", 
                                        MessageBoxButtons.OK, 
@@ -141,7 +149,7 @@ namespace ProgramManagerVC
                 }
                 else
                 {
-                    MessageBox.Show("The file does not exist:\n\n" + shortcutInfo.TargetPath + 
+                    MessageBox.Show("The file does not exist:\n\n" + expandedTargetPath + 
                                    "\n\nThe file may have been moved, renamed, or deleted. " +
                                    "You can edit this item's properties to update the path.", 
                                    "File Not Found", 
@@ -186,10 +194,29 @@ namespace ProgramManagerVC
                     item.Text = shortcut.Name;
                     item.ImageIndex = i;
                     
-                    // Build tooltip with target and arguments
+                    // Build tooltip with target and arguments, showing environment variables if present
                     string tooltip = shortcut.TargetPath;
+                    string expandedPath = FileBasedData.ExpandEnvironmentVariables(shortcut.TargetPath);
+                    
+                    // Show expanded path if it differs from original (contains environment variables)
+                    if (shortcut.TargetPath != expandedPath)
+                    {
+                        tooltip = $"{shortcut.TargetPath}\n→ {expandedPath}";
+                    }
+                    
                     if (!string.IsNullOrEmpty(shortcut.Arguments))
-                        tooltip += " " + shortcut.Arguments;
+                    {
+                        string expandedArgs = FileBasedData.ExpandEnvironmentVariables(shortcut.Arguments);
+                        if (shortcut.Arguments != expandedArgs)
+                        {
+                            tooltip += $"\nArguments: {shortcut.Arguments}\n→ {expandedArgs}";
+                        }
+                        else
+                        {
+                            tooltip += $"\nArguments: {shortcut.Arguments}";
+                        }
+                    }
+                    
                     item.ToolTipText = tooltip;
                     
                     item.Tag = shortcut; // Store the entire shortcut info
@@ -220,28 +247,40 @@ namespace ProgramManagerVC
             Icon extractedIcon = null;
 
             // Strategy 1: Try to load icon from the specified icon location
-            if (!string.IsNullOrEmpty(shortcut.IconLocation) && File.Exists(shortcut.IconLocation))
+            if (!string.IsNullOrEmpty(shortcut.IconLocation))
             {
-                extractedIcon = TryExtractIconFromFile(shortcut.IconLocation, shortcut.IconIndex);
-                if (extractedIcon != null) return extractedIcon;
+                string expandedIconPath = FileBasedData.ExpandEnvironmentVariables(shortcut.IconLocation);
+                if (File.Exists(expandedIconPath))
+                {
+                    extractedIcon = TryExtractIconFromFile(expandedIconPath, shortcut.IconIndex);
+                    if (extractedIcon != null) return extractedIcon;
+                }
             }
 
             // Strategy 2: Try to load icon from the target executable
-            if (!string.IsNullOrEmpty(shortcut.TargetPath) && File.Exists(shortcut.TargetPath))
+            if (!string.IsNullOrEmpty(shortcut.TargetPath))
             {
-                extractedIcon = TryExtractIconFromFile(shortcut.TargetPath, 0);
-                if (extractedIcon != null) return extractedIcon;
+                string expandedTargetPath = FileBasedData.ExpandEnvironmentVariables(shortcut.TargetPath);
+                if (File.Exists(expandedTargetPath))
+                {
+                    extractedIcon = TryExtractIconFromFile(expandedTargetPath, 0);
+                    if (extractedIcon != null) return extractedIcon;
+                }
             }
 
             // Strategy 3: Try to get associated icon for the target file
-            if (!string.IsNullOrEmpty(shortcut.TargetPath) && File.Exists(shortcut.TargetPath))
+            if (!string.IsNullOrEmpty(shortcut.TargetPath))
             {
-                try
+                string expandedTargetPath = FileBasedData.ExpandEnvironmentVariables(shortcut.TargetPath);
+                if (File.Exists(expandedTargetPath))
                 {
-                    extractedIcon = Icon.ExtractAssociatedIcon(shortcut.TargetPath);
-                    if (extractedIcon != null) return extractedIcon;
+                    try
+                    {
+                        extractedIcon = Icon.ExtractAssociatedIcon(expandedTargetPath);
+                        if (extractedIcon != null) return extractedIcon;
+                    }
+                    catch { }
                 }
-                catch { }
             }
 
             // Strategy 4: Try to get associated icon for the shortcut file itself
@@ -253,9 +292,13 @@ namespace ProgramManagerVC
             catch { }
 
             // Strategy 5: Use system warning icon for missing files
-            if (!File.Exists(shortcut.TargetPath))
+            if (!string.IsNullOrEmpty(shortcut.TargetPath))
             {
-                return SystemIcons.Warning;
+                string expandedTargetPath = FileBasedData.ExpandEnvironmentVariables(shortcut.TargetPath);
+                if (!File.Exists(expandedTargetPath))
+                {
+                    return SystemIcons.Warning;
+                }
             }
 
             return null; // Will fall back to SystemIcons.Application in calling method
@@ -268,18 +311,21 @@ namespace ProgramManagerVC
         {
             try
             {
-                if (!File.Exists(filePath)) return null;
+                // Expand environment variables in the file path
+                string expandedPath = FileBasedData.ExpandEnvironmentVariables(filePath);
+                
+                if (!File.Exists(expandedPath)) return null;
 
-                string extension = Path.GetExtension(filePath).ToLower();
+                string extension = Path.GetExtension(expandedPath).ToLower();
                 
                 if (extension == ".ico")
                 {
-                    return new Icon(filePath);
+                    return new Icon(expandedPath);
                 }
                 else if (extension == ".exe" || extension == ".dll")
                 {
                     // Extract specific icon by index using Windows Shell API
-                    IntPtr hIcon = ExtractIcon(IntPtr.Zero, filePath, iconIndex);
+                    IntPtr hIcon = ExtractIcon(IntPtr.Zero, expandedPath, iconIndex);
                     if (hIcon != IntPtr.Zero && hIcon != (IntPtr)1)
                     {
                         Icon icon = Icon.FromHandle(hIcon);
@@ -289,7 +335,7 @@ namespace ProgramManagerVC
                 }
                 
                 // Fallback to associated icon
-                return Icon.ExtractAssociatedIcon(filePath);
+                return Icon.ExtractAssociatedIcon(expandedPath);
             }
             catch (Exception ex)
             {
@@ -387,21 +433,29 @@ namespace ProgramManagerVC
             {
                 var shortcutInfo = (ShortcutInfo)listViewMain.SelectedItems[0].Tag;
                 
+                // Expand environment variables before checking file existence
+                string expandedTargetPath = FileBasedData.ExpandEnvironmentVariables(shortcutInfo.TargetPath);
+                
                 // Check if file exists before trying to launch it
-                if (System.IO.File.Exists(shortcutInfo.TargetPath))
+                if (System.IO.File.Exists(expandedTargetPath))
                 {
                     try
                     {
                         var psi = new ProcessStartInfo();
-                        psi.FileName = shortcutInfo.TargetPath;
-                        psi.Arguments = shortcutInfo.Arguments ?? "";
-                        psi.WorkingDirectory = shortcutInfo.WorkingDirectory ?? Path.GetDirectoryName(shortcutInfo.TargetPath);
+                        psi.FileName = expandedTargetPath;
+                        psi.Arguments = FileBasedData.ExpandEnvironmentVariables(shortcutInfo.Arguments ?? "");
+                        
+                        string expandedWorkingDir = FileBasedData.ExpandEnvironmentVariables(shortcutInfo.WorkingDirectory ?? "");
+                        if (string.IsNullOrEmpty(expandedWorkingDir))
+                            expandedWorkingDir = Path.GetDirectoryName(expandedTargetPath);
+                        
+                        psi.WorkingDirectory = expandedWorkingDir;
                         psi.UseShellExecute = true;
                         Process.Start(psi);
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show("Could not open file:\n\n" + shortcutInfo.TargetPath + 
+                        MessageBox.Show("Could not open file:\n\n" + expandedTargetPath + 
                                        "\n\nError: " + ex.Message, 
                                        "Error Opening File", 
                                        MessageBoxButtons.OK, 
@@ -410,7 +464,7 @@ namespace ProgramManagerVC
                 }
                 else
                 {
-                    MessageBox.Show("The file does not exist:\n\n" + shortcutInfo.TargetPath + 
+                    MessageBox.Show("The file does not exist:\n\n" + expandedTargetPath + 
                                    "\n\nThe file may have been moved, renamed, or deleted. " +
                                    "You can edit this item's properties to update the path.", 
                                    "File Not Found", 
@@ -426,16 +480,19 @@ namespace ProgramManagerVC
             {
                 var shortcutInfo = (ShortcutInfo)listViewMain.SelectedItems[0].Tag;
                 
+                // Expand environment variables before checking file existence
+                string expandedTargetPath = FileBasedData.ExpandEnvironmentVariables(shortcutInfo.TargetPath);
+                
                 // Check if file exists before trying to show it in explorer
-                if (System.IO.File.Exists(shortcutInfo.TargetPath))
+                if (System.IO.File.Exists(expandedTargetPath))
                 {
                     try
                     {
-                        Process.Start(new ProcessStartInfo("explorer.exe", "/select, \"" + shortcutInfo.TargetPath + "\""));
+                        Process.Start(new ProcessStartInfo("explorer.exe", "/select, \"" + expandedTargetPath + "\""));
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show("Could not open file location:\n\n" + shortcutInfo.TargetPath + 
+                        MessageBox.Show("Could not open file location:\n\n" + expandedTargetPath + 
                                        "\n\nError: " + ex.Message, 
                                        "Error", 
                                        MessageBoxButtons.OK, 
@@ -444,7 +501,7 @@ namespace ProgramManagerVC
                 }
                 else
                 {
-                    MessageBox.Show("The file does not exist:\n\n" + shortcutInfo.TargetPath + 
+                    MessageBox.Show("The file does not exist:\n\n" + expandedTargetPath + 
                                    "\n\nThe file may have been moved, renamed, or deleted. " +
                                    "You can edit this item's properties to update the path.", 
                                    "File Not Found", 
@@ -462,21 +519,24 @@ namespace ProgramManagerVC
                 {
                     var shortcutInfo = (ShortcutInfo)listViewMain.SelectedItems[0].Tag;
                     
+                    // Expand environment variables before checking file existence
+                    string expandedTargetPath = FileBasedData.ExpandEnvironmentVariables(shortcutInfo.TargetPath);
+                    
                     // Check if file exists before trying to run it
-                    if (System.IO.File.Exists(shortcutInfo.TargetPath))
+                    if (System.IO.File.Exists(expandedTargetPath))
                     {
                         try 
                         {
                             Process proc = new Process();
-                            proc.StartInfo.FileName = shortcutInfo.TargetPath;
-                            proc.StartInfo.Arguments = shortcutInfo.Arguments ?? "";
+                            proc.StartInfo.FileName = expandedTargetPath;
+                            proc.StartInfo.Arguments = FileBasedData.ExpandEnvironmentVariables(shortcutInfo.Arguments ?? "");
                             proc.StartInfo.UseShellExecute = true;
                             proc.StartInfo.Verb = "runas";
                             proc.Start();
                         }
                         catch (Exception ex)
                         {
-                            MessageBox.Show("Could not run file as administrator:\n\n" + shortcutInfo.TargetPath + 
+                            MessageBox.Show("Could not run file as administrator:\n\n" + expandedTargetPath + 
                                            "\n\nError: " + ex.Message, 
                                            "Error", 
                                            MessageBoxButtons.OK, 
@@ -485,7 +545,7 @@ namespace ProgramManagerVC
                     }
                     else
                     {
-                        MessageBox.Show("The file does not exist:\n\n" + shortcutInfo.TargetPath + 
+                        MessageBox.Show("The file does not exist:\n\n" + expandedTargetPath + 
                                        "\n\nThe file may have been moved, renamed, or deleted. " +
                                        "You can edit this item's properties to update the path.", 
                                        "File Not Found", 

@@ -681,6 +681,11 @@ namespace ProgramManagerVC
                 try { description = (string)linkType.InvokeMember("Description", System.Reflection.BindingFlags.GetProperty, null, lnk, null) ?? ""; } catch { }
                 try { iconLocation = (string)linkType.InvokeMember("IconLocation", System.Reflection.BindingFlags.GetProperty, null, lnk, null) ?? ""; } catch { }
 
+                // Expand environment variables in paths
+                targetPath = ExpandEnvironmentVariables(targetPath);
+                workingDir = ExpandEnvironmentVariables(workingDir);
+                iconLocation = ExpandEnvironmentVariables(iconLocation);
+
                 var shortcutInfo = new ShortcutInfo
                 {
                     Name = Path.GetFileNameWithoutExtension(shortcutPath),
@@ -704,7 +709,7 @@ namespace ProgramManagerVC
                     if (iconLocation.Contains(","))
                     {
                         var parts = iconLocation.Split(',');
-                        shortcutInfo.IconLocation = parts[0].Trim();
+                        shortcutInfo.IconLocation = ExpandEnvironmentVariables(parts[0].Trim());
                         if (parts.Length > 1 && int.TryParse(parts[1].Trim(), out int iconIdx))
                         {
                             shortcutInfo.IconIndex = iconIdx;
@@ -908,6 +913,76 @@ namespace ProgramManagerVC
         public static string GetCurrentProfile()
         {
             return LoadApplicationSetting("current_profile", "Default");
+        }
+
+        #endregion
+
+        #region Environment Variable Expansion
+
+        /// <summary>
+        /// Expands environment variables in a path string (e.g., %SystemRoot%, %HOMEDRIVE%%HOMEPATH%)
+        /// </summary>
+        /// <param name="path">Path that may contain environment variables</param>
+        /// <returns>Expanded path with environment variables resolved</returns>
+        public static string ExpandEnvironmentVariables(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return path;
+
+            try
+            {
+                // Use Environment.ExpandEnvironmentVariables to resolve DOS-style variables
+                return Environment.ExpandEnvironmentVariables(path);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error expanding environment variables in path '{path}': {ex.Message}");
+                return path; // Return original path if expansion fails
+            }
+        }
+
+        /// <summary>
+        /// Safely checks if a path (with potential environment variables) exists after expansion
+        /// </summary>
+        /// <param name="path">Path that may contain environment variables</param>
+        /// <returns>True if the expanded path exists</returns>
+        public static bool FileExistsWithExpansion(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return false;
+
+            try
+            {
+                string expandedPath = ExpandEnvironmentVariables(path);
+                return File.Exists(expandedPath);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error checking file existence for path '{path}': {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Safely checks if a directory (with potential environment variables) exists after expansion
+        /// </summary>
+        /// <param name="path">Path that may contain environment variables</param>
+        /// <returns>True if the expanded path exists as a directory</returns>
+        public static bool DirectoryExistsWithExpansion(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return false;
+
+            try
+            {
+                string expandedPath = ExpandEnvironmentVariables(path);
+                return Directory.Exists(expandedPath);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error checking directory existence for path '{path}': {ex.Message}");
+                return false;
+            }
         }
 
         #endregion

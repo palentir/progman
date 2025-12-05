@@ -110,22 +110,25 @@ namespace ProgramManagerVC
             listViewIcons.Items.Clear();
             imageListIcons.Images.Clear();
             
-            if (!File.Exists(filePath))
+            // Expand environment variables in the file path
+            string expandedPath = FileBasedData.ExpandEnvironmentVariables(filePath);
+            
+            if (!File.Exists(expandedPath))
             {
                 return;
             }
 
             try
             {
-                string extension = Path.GetExtension(filePath).ToLower();
+                string extension = Path.GetExtension(expandedPath).ToLower();
                 
                 if (extension == ".ico")
                 {
-                    LoadIconFromIcoFile(filePath);
+                    LoadIconFromIcoFile(expandedPath);
                 }
                 else if (extension == ".exe" || extension == ".dll")
                 {
-                    LoadIconsFromExecutable(filePath);
+                    LoadIconsFromExecutable(expandedPath);
                 }
                 
                 // Arrange icons horizontally in a single row
@@ -305,9 +308,12 @@ namespace ProgramManagerVC
         {
             string iconPathToLoad = string.IsNullOrEmpty(textBoxIconPath.Text) ? textBoxPath.Text : textBoxIconPath.Text;
             
-            if (!string.IsNullOrEmpty(iconPathToLoad) && File.Exists(iconPathToLoad))
+            // Expand environment variables before checking file existence
+            string expandedIconPath = FileBasedData.ExpandEnvironmentVariables(iconPathToLoad);
+            
+            if (!string.IsNullOrEmpty(expandedIconPath) && File.Exists(expandedIconPath))
             {
-                LoadIconsFromFile(iconPathToLoad);
+                LoadIconsFromFile(iconPathToLoad); // Pass original path so expansion happens in LoadIconsFromFile
             }
             else
             {
@@ -344,9 +350,13 @@ namespace ProgramManagerVC
 
         private void ButtonOK_Click(object sender, EventArgs e)
         {
-            if (!System.IO.File.Exists(textBoxPath.Text))
+            // Expand environment variables before checking file existence
+            string expandedTargetPath = FileBasedData.ExpandEnvironmentVariables(textBoxPath.Text);
+            
+            if (!System.IO.File.Exists(expandedTargetPath))
             {
-                MessageBox.Show("The specified file does not exist:\n\n" + textBoxPath.Text + 
+                MessageBox.Show("The specified file does not exist:\n\n" + expandedTargetPath + 
+                               "\n\nOriginal path: " + textBoxPath.Text +
                                "\n\nPlease check the path and try again.", 
                                "File Not Found", 
                                MessageBoxButtons.OK, 
@@ -362,7 +372,7 @@ namespace ProgramManagerVC
                 if (tb != null) parameters = tb.Text;
             }
 
-            // Determine actual icon path
+            // Determine actual icon path (don't expand here - let the shortcut file store the original with variables)
             string actualIconPath = string.IsNullOrEmpty(textBoxIconPath.Text) ? textBoxPath.Text : textBoxIconPath.Text;
 
             try
@@ -419,10 +429,16 @@ namespace ProgramManagerVC
         private void TextBoxPath_TextChanged(object sender, EventArgs e)
         {
             // When path changes and icon path is empty, reload icons from new path
-            if (string.IsNullOrEmpty(textBoxIconPath.Text) && !string.IsNullOrEmpty(textBoxPath.Text) && File.Exists(textBoxPath.Text))
+            if (string.IsNullOrEmpty(textBoxIconPath.Text) && !string.IsNullOrEmpty(textBoxPath.Text))
             {
-                selectedIconIndex = 0;
-                LoadIconsFromFile(textBoxPath.Text);
+                // Expand environment variables before checking file existence
+                string expandedPath = FileBasedData.ExpandEnvironmentVariables(textBoxPath.Text);
+                
+                if (File.Exists(expandedPath))
+                {
+                    selectedIconIndex = 0;
+                    LoadIconsFromFile(textBoxPath.Text); // Pass original path so expansion happens in LoadIconsFromFile
+                }
             }
             CheckTextBoxes();
         }
