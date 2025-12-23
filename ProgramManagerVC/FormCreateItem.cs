@@ -73,18 +73,17 @@ namespace ProgramManagerVC
                     textBoxName.Text = existingShortcut.Name;
                     textBoxPath.Text = existingShortcut.TargetPath;
                     
-                    // Set parameters textbox if available
-                    if (this.Controls.Find("textBoxParameters", true).Length > 0)
+                    // Combine target path with arguments if they exist
+                    if (!string.IsNullOrEmpty(existingShortcut.Arguments))
                     {
-                        var tb = this.Controls.Find("textBoxParameters", true)[0] as TextBox;
-                        if (tb != null) tb.Text = existingShortcut.Arguments ?? "";
+                        textBoxPath.Text = existingShortcut.TargetPath + " " + existingShortcut.Arguments;
                     }
                     
                     selectedIconPath = existingShortcut.IconLocation;
                     selectedIconIndex = existingShortcut.IconIndex;
                     
                     // Only show icon path if it differs from the executable path
-                    if (selectedIconPath == textBoxPath.Text)
+                    if (selectedIconPath == existingShortcut.TargetPath)
                     {
                         textBoxIconPath.Text = "";
                     }
@@ -344,9 +343,56 @@ namespace ProgramManagerVC
 
         private void ButtonOK_Click(object sender, EventArgs e)
         {
-            if (!System.IO.File.Exists(textBoxPath.Text))
+            // Parse path and parameters from shortcut path textbox
+            string fullPath = textBoxPath.Text.Trim();
+            string targetPath = fullPath;
+            string parameters = "";
+            
+            // Extract parameters from path if they exist (look for executable and then parameters)
+            if (fullPath.Contains(" "))
             {
-                MessageBox.Show("The specified file does not exist:\n\n" + textBoxPath.Text + 
+                // Try to find where the executable ends and parameters begin
+                string[] parts = fullPath.Split(' ');
+                string possiblePath = parts[0];
+                
+                // Check if the first part is a valid file
+                if (System.IO.File.Exists(possiblePath))
+                {
+                    targetPath = possiblePath;
+                    parameters = string.Join(" ", parts.Skip(1));
+                }
+                else
+                {
+                    // Try to find quoted path
+                    if (fullPath.StartsWith("\""))
+                    {
+                        int endQuote = fullPath.IndexOf("\"", 1);
+                        if (endQuote > 0)
+                        {
+                            targetPath = fullPath.Substring(1, endQuote - 1);
+                            parameters = fullPath.Substring(endQuote + 1).Trim();
+                        }
+                    }
+                    else
+                    {
+                        // Try building path until we find existing file
+                        for (int i = 2; i <= parts.Length; i++)
+                        {
+                            string testPath = string.Join(" ", parts.Take(i));
+                            if (System.IO.File.Exists(testPath))
+                            {
+                                targetPath = testPath;
+                                parameters = string.Join(" ", parts.Skip(i));
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!System.IO.File.Exists(targetPath))
+            {
+                MessageBox.Show("The specified file does not exist:\n\n" + targetPath + 
                                "\n\nPlease check the path and try again.", 
                                "File Not Found", 
                                MessageBoxButtons.OK, 
@@ -354,16 +400,8 @@ namespace ProgramManagerVC
                 return;
             }
 
-            // Get parameters if textbox exists
-            string parameters = "";
-            if (this.Controls.Find("textBoxParameters", true).Length > 0)
-            {
-                var tb = this.Controls.Find("textBoxParameters", true)[0] as TextBox;
-                if (tb != null) parameters = tb.Text;
-            }
-
             // Determine actual icon path
-            string actualIconPath = string.IsNullOrEmpty(textBoxIconPath.Text) ? textBoxPath.Text : textBoxIconPath.Text;
+            string actualIconPath = string.IsNullOrEmpty(textBoxIconPath.Text) ? targetPath : textBoxIconPath.Text;
 
             try
             {
@@ -372,7 +410,7 @@ namespace ProgramManagerVC
                 if (existingShortcut == null)
                 {
                     // Creating new shortcut
-                    FileBasedData.CreateShortcut(groupName, textBoxName.Text, textBoxPath.Text, parameters, actualIconPath, selectedIconIndex);
+                    FileBasedData.CreateShortcut(groupName, textBoxName.Text, targetPath, parameters, actualIconPath, selectedIconIndex);
                 }
                 else
                 {
@@ -383,7 +421,7 @@ namespace ProgramManagerVC
                     }
                     
                     // Create updated shortcut
-                    FileBasedData.CreateShortcut(groupName, textBoxName.Text, textBoxPath.Text, parameters, actualIconPath, selectedIconIndex);
+                    FileBasedData.CreateShortcut(groupName, textBoxName.Text, targetPath, parameters, actualIconPath, selectedIconIndex);
                 }
                 
                 this.DialogResult = DialogResult.OK;

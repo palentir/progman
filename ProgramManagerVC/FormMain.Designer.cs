@@ -97,7 +97,7 @@
             // 
             this.newItemToolStripMenuItem.Name = "newItemToolStripMenuItem";
             this.newItemToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
-            this.newItemToolStripMenuItem.Text = "New Item...";
+            this.newItemToolStripMenuItem.Text = "New Shortcut...";
             this.newItemToolStripMenuItem.Click += new System.EventHandler(this.NewItemToolStripMenuItem_Click);
             // 
             // deleteToolStripMenuItem

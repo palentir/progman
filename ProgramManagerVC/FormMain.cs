@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 using System.IO;
+using System.Runtime.InteropServices;
 
 namespace ProgramManagerVC
 {
@@ -15,6 +16,25 @@ namespace ProgramManagerVC
         private List<MinimizedIcon> minimizedIcons = new List<MinimizedIcon>();
         private IconHostForm iconHost;
         private MinimizedIcon selectedIcon; // track selected icon
+
+        // Windows API declarations
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr ShellExecuteW(
+            IntPtr hwnd,
+            string lpOperation,
+            string lpFile,
+            string lpParameters,
+            string lpDirectory,
+            int nShowCmd);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+        private static extern bool SetCurrentDirectoryW(string lpPathName);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+        private static extern uint GetCurrentDirectoryW(uint nBufferLength, StringBuilder lpBuffer);
+        
+        private const int SW_SHOW = 5;
+        private const int SW_SHOWNORMAL = 1;
 
         // Use full client area for hosting icons (no separate bottom bar)
         private Control GetIconHost()
@@ -326,6 +346,7 @@ namespace ProgramManagerVC
         {
             if (this.ActiveMdiChild is FormChild activeChild)
             {
+                // Use FormCreateItem for shortcut creation
                 using (FormCreateItem createform = new FormCreateItem(activeChild.Tag.ToString()))
                 {
                     if (createform.ShowDialog() == DialogResult.OK)
@@ -410,17 +431,61 @@ namespace ProgramManagerVC
             {
                 if (activeChild.listViewMain.SelectedItems.Count > 0)
                 {
-                    var selectedItem = activeChild.listViewMain.SelectedItems[0];
-                    using (FormCreateItem createform = new FormCreateItem(activeChild.Tag.ToString(), selectedItem.Text))
+                    var shortcutInfo = (ShortcutInfo)activeChild.listViewMain.SelectedItems[0].Tag;
+                    
+                    try
                     {
-                        if (createform.ShowDialog() == DialogResult.OK)
+                        // Use ShellExecuteW to open shortcut properties
+                        IntPtr result = ShellExecuteW(
+                            this.Handle,          // Parent window handle
+                            "properties",         // Operation - open properties dialog
+                            shortcutInfo.ShortcutPath,  // File path to the .lnk file
+                            null,                 // No parameters
+                            null,                 // No working directory (uses default)
+                            SW_SHOW              // Show the dialog
+                        );
+                        
+                        // Check if the operation was successful
+                        // ShellExecuteW returns values > 32 for success
+                        if (result.ToInt32() <= 32)
                         {
-                            activeChild.InitializeItems();
+                            throw new Exception($"ShellExecuteW failed with code: {result.ToInt32()}");
+                        }
+                        
+                        // Refresh after a short delay since we can't wait for dialog completion
+                        var timer = new Timer();
+                        timer.Interval = 500; // 500ms delay
+                        timer.Tick += (s, args) =>
+                        {
+                            timer.Stop();
+                            timer.Dispose();
+                            // Refresh items in case properties were changed
+                            if (!activeChild.IsDisposed)
+                            {
+                                activeChild.BeginInvoke(new Action(() => activeChild.InitializeItems()));
+                            }
+                        };
+                        timer.Start();
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Error opening shortcut properties: {ex.Message}", 
+                            "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        
+                        // Fallback to custom dialog if ShellExecuteW fails
+                        var selectedItem = activeChild.listViewMain.SelectedItems[0];
+                        using (FormCreateItem createform = new FormCreateItem(activeChild.Tag.ToString(), selectedItem.Text))
+                        {
+                            if (createform.ShowDialog() == DialogResult.OK)
+                            {
+                                activeChild.InitializeItems();
+                            }
                         }
                     }
                 }
                 else
                 {
+                    // Group properties - still use custom form
                     Form createForm = new FormCreateGroup(activeChild.Tag.ToString());
                     if (createForm.ShowDialog() == DialogResult.OK)
                     {

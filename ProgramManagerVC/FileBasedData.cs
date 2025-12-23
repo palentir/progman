@@ -735,7 +735,6 @@ namespace ProgramManagerVC
                 
                 linkType.InvokeMember("TargetPath", System.Reflection.BindingFlags.SetProperty, null, lnk, new object[] { targetPath });
                 linkType.InvokeMember("WorkingDirectory", System.Reflection.BindingFlags.SetProperty, null, lnk, new object[] { Path.GetDirectoryName(targetPath) });
-                linkType.InvokeMember("Description", System.Reflection.BindingFlags.SetProperty, null, lnk, new object[] { "Created by Program Manager" });
 
                 if (!string.IsNullOrEmpty(arguments))
                     linkType.InvokeMember("Arguments", System.Reflection.BindingFlags.SetProperty, null, lnk, new object[] { arguments });
