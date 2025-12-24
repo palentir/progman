@@ -51,7 +51,7 @@
             // 
             this.button1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.button1.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.button1.Location = new System.Drawing.Point(375, 169);
+            this.button1.Location = new System.Drawing.Point(375, 145);
             this.button1.Name = "button1";
             this.button1.Size = new System.Drawing.Size(75, 23);
             this.button1.TabIndex = 0;
@@ -62,7 +62,7 @@
             // 
             this.buttonOK.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.buttonOK.Enabled = false;
-            this.buttonOK.Location = new System.Drawing.Point(375, 140);
+            this.buttonOK.Location = new System.Drawing.Point(375, 116);
             this.buttonOK.Name = "buttonOK";
             this.buttonOK.Size = new System.Drawing.Size(75, 23);
             this.buttonOK.TabIndex = 1;
@@ -199,7 +199,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(462, 203);
+            this.ClientSize = new System.Drawing.Size(462, 179);
             this.Controls.Add(this.pictureBoxPreview);
             this.Controls.Add(this.listViewIcons);
             this.Controls.Add(this.buttonIconBrowser);

@@ -121,21 +121,26 @@ namespace ProgramManagerVC
             if (Properties.Settings.Default.UsernameInTitle == 1)
             {
                 // Show only username without domain/workgroup
-                Text = $"Program Manager - {Environment.UserName}";
+                Text = $"Program Manager .NET - {Environment.UserName}";
             }
             else
             {
-                Text = "Program Manager";
+                Text = "Program Manager .NET";
             }
         }
 
         private void SaveActiveWindow()
         {
-            // Save which window was active when app closes
+            // Save which window was active when app closes - only if there is one
             var activeChild = this.ActiveMdiChild as FormChild;
             if (activeChild != null && activeChild.Tag != null)
             {
                 FileBasedData.SaveApplicationSettings("active_window", activeChild.Tag.ToString());
+            }
+            else
+            {
+                // Clear the active window setting if no windows are open
+                FileBasedData.SaveApplicationSettings("active_window", "");
             }
         }
 
@@ -151,7 +156,7 @@ namespace ProgramManagerVC
                 if (profiles == null || profiles.Count == 0)
                 {
                     // Create default Main profile if no profiles exist
-                    var mainGroupsPath = Path.Combine(Application.StartupPath, "Groups");
+                    var mainGroupsPath = Path.Combine(Application.StartupPath, "Shortcuts");
                     if (!Directory.Exists(mainGroupsPath))
                         Directory.CreateDirectory(mainGroupsPath);
                     
@@ -189,6 +194,7 @@ namespace ProgramManagerVC
                 // Get last active window
                 string lastActiveWindowId = FileBasedData.LoadApplicationSetting("active_window", "");
                 FormChild windowToActivate = null;
+                bool isFirstTimeDisplayingProfile = string.IsNullOrEmpty(lastActiveWindowId);
                 
                 if (groups.Count > 0)
                 {
@@ -219,8 +225,27 @@ namespace ProgramManagerVC
                             windowToActivate = child;
                         }
                         
+                        // Determine window state based on first-time display and group type
+                        int windowState = groupInfo.WindowStatus;
+                        
+                        // Special handling for first-time profile display
+                        if (isFirstTimeDisplayingProfile)
+                        {
+                            if (groupInfo.Name == "Programs")
+                            {
+                                // Programs group (root shortcuts) should be visible on first display
+                                windowState = 1; // Normal/Visible
+                                windowToActivate = child; // Make it the active window
+                            }
+                            else
+                            {
+                                // All other groups should be minimized by default
+                                windowState = 0; // Minimized
+                            }
+                        }
+                        
                         // Set window state
-                        switch (groupInfo.WindowStatus)
+                        switch (windowState)
                         {
                             case 0: // Minimized
                                 child.Show();
@@ -246,7 +271,7 @@ namespace ProgramManagerVC
                     
                     ArrangeMinimizedIcons();
                     
-                    // Activate the previously active window last
+                    // Activate the previously active window last, or Programs window on first display
                     if (windowToActivate != null && windowToActivate.WindowState != FormWindowState.Minimized)
                     {
                         this.BeginInvoke(new Action(() =>
@@ -258,34 +283,30 @@ namespace ProgramManagerVC
                 }
                 else
                 {
-                    // Create default Programs group structure
+                    // No groups exist - this is normal for an empty Shortcuts folder
                     try
                     {
-                        // Ensure the groups folder exists
+                        // Ensure the Shortcuts folder exists
                         if (!Directory.Exists(activeProfile.Path))
                             Directory.CreateDirectory(activeProfile.Path);
-                            
-                        FileBasedData.CreateGroup("Programs");
                         
-                        // Create a sample shortcut
-                        var notepadPath = Path.Combine(Environment.SystemDirectory, "notepad.exe");
-                        if (File.Exists(notepadPath))
-                        {
-                            FileBasedData.CreateShortcut("Programs", "Notepad", notepadPath, "", notepadPath, 0);
-                        }
+                        // Don't create any shortcuts - leave the Shortcuts folder empty
+                        // Users can add shortcuts manually as needed
+                        // No need to reload - just continue with empty state
                         
-                        // Reload to show the new group
-                        this.BeginInvoke(new Action(InitializeMDI));
+                        // Initialize the icon host for potential minimized icons
+                        GetIconHost();
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show("Error creating default group: " + ex.Message, "Initialization Error", 
+                        MessageBox.Show("Error creating default structure: " + ex.Message, "Initialization Error", 
                             MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     }
                 }
                 
-                // Update window title to show current profile
-                this.Text = $"Program Manager - {activeProfile.Name}";
+                // Update window title - don't show profile name, keep it clean
+                // Only show username if that setting is enabled
+                InitializeTitle();
             }
             catch (Exception ex)
             {
@@ -758,7 +779,7 @@ namespace ProgramManagerVC
 
         private void profileToolStripMenuItem_DropDownOpening(object sender, EventArgs e)
         {
-            // Clear existing profile items (keep Main, separator, Add Profile, Delete Profile)
+            // Clear existing profile items (keep Local Folder, separator, Add Profile, Delete Profile)
             var itemsToRemove = new List<ToolStripItem>();
             for (int i = 0; i < profileToolStripMenuItem.DropDownItems.Count; i++)
             {
@@ -781,11 +802,11 @@ namespace ProgramManagerVC
             var profiles = FileBasedData.GetAllProfiles();
             var currentProfile = FileBasedData.GetCurrentProfile();
             
-            // Mark current profile
+            // Mark current profile (Local Folder represents Main profile)
             mainProfileToolStripMenuItem.Checked = (currentProfile == "Main");
             
-            // Insert custom profiles after Main but before separator
-            int insertIndex = 1; // After Main
+            // Insert custom profiles after Local Folder but before separator
+            int insertIndex = 1; // After Local Folder
             
             foreach (var profile in profiles.Where(p => p.Name != "Main"))
             {
@@ -806,63 +827,60 @@ namespace ProgramManagerVC
 
         private void addProfileToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            DialogResult result = folderBrowserDialogProfile.ShowDialog();
-            if (result == DialogResult.OK)
+            string selectedPath = null;
+            
+            // Use the enhanced folder browser experience
+            using (var folderDialog = new FolderBrowserDialog())
             {
-                string selectedPath = folderBrowserDialogProfile.SelectedPath;
+                folderDialog.Description = "Add a folder containing shortcuts";
+                folderDialog.ShowNewFolderButton = true;
+                folderDialog.SelectedPath = Application.StartupPath;
                 
-                // Ask for profile name using a simple input form
-                string profileName = ShowInputDialog("Enter a name for this profile:", 
-                    "Profile Name", Path.GetFileName(selectedPath));
-                
-                if (!string.IsNullOrEmpty(profileName))
+                if (folderDialog.ShowDialog(this) == DialogResult.OK)
                 {
-                    try
-                    {
-                        // Save the profile
-                        FileBasedData.SaveProfile(profileName, selectedPath);
-                        
-                        // Switch to the new profile
-                        LoadProfile(profileName);
-                        
-                        MessageBox.Show($"Profile '{profileName}' added successfully!", 
-                            "Profile Added", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show($"Error adding profile: {ex.Message}", 
-                            "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
+                    selectedPath = folderDialog.SelectedPath;
                 }
             }
-        }
-
-        private string ShowInputDialog(string prompt, string title, string defaultValue = "")
-        {
-            Form inputForm = new Form()
+            
+            if (!string.IsNullOrEmpty(selectedPath))
             {
-                Width = 400,
-                Height = 150,
-                FormBorderStyle = FormBorderStyle.FixedDialog,
-                Text = title,
-                StartPosition = FormStartPosition.CenterParent,
-                MaximizeBox = false,
-                MinimizeBox = false
-            };
-            
-            Label lblPrompt = new Label() { Left = 15, Top = 20, Text = prompt, Width = 350 };
-            TextBox txtInput = new TextBox() { Left = 15, Top = 45, Width = 350, Text = defaultValue };
-            Button btnOK = new Button() { Text = "OK", Left = 235, Width = 60, Top = 75, DialogResult = DialogResult.OK };
-            Button btnCancel = new Button() { Text = "Cancel", Left = 305, Width = 60, Top = 75, DialogResult = DialogResult.Cancel };
-            
-            inputForm.Controls.Add(lblPrompt);
-            inputForm.Controls.Add(txtInput);
-            inputForm.Controls.Add(btnOK);
-            inputForm.Controls.Add(btnCancel);
-            inputForm.AcceptButton = btnOK;
-            inputForm.CancelButton = btnCancel;
-            
-            return inputForm.ShowDialog(this) == DialogResult.OK ? txtInput.Text : "";
+                // Use the folder name directly as the profile name
+                string profileName = Path.GetFileName(selectedPath);
+                
+                // Validate profile name - prevent reserved names
+                if (profileName.Equals("Programs", StringComparison.OrdinalIgnoreCase))
+                {
+                    MessageBox.Show("'Programs' is a reserved name and cannot be used as a profile name.\n\nThe selected folder name conflicts with a reserved name.", 
+                        "Reserved Name", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                
+                // Check if profile name already exists
+                var existingProfiles = FileBasedData.GetAllProfiles();
+                if (existingProfiles.Any(p => p.Name.Equals(profileName, StringComparison.OrdinalIgnoreCase)))
+                {
+                    MessageBox.Show($"A profile named '{profileName}' already exists.\n\nPlease select a different folder or rename the selected folder.", 
+                        "Profile Already Exists", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                
+                try
+                {
+                    // Save the profile using the folder name
+                    FileBasedData.SaveProfile(profileName, selectedPath);
+                    
+                    // Switch to the new profile
+                    LoadProfile(profileName);
+                    
+                    MessageBox.Show($"Profile '{profileName}' added successfully!", 
+                        "Profile Added", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error adding profile: {ex.Message}", 
+                        "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
         }
 
         private void deleteProfileToolStripMenuItem_Click(object sender, EventArgs e)
@@ -910,8 +928,8 @@ namespace ProgramManagerVC
                 // Reload the application with the new profile
                 InitializeMDI();
                 
-                // Update window title
-                this.Text = $"Program Manager - {profileName}";
+                // Don't show profile name in title - keep it clean
+                // Title will be set by InitializeMDI() calling InitializeTitle()
             }
             catch (Exception ex)
             {

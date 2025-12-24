@@ -89,59 +89,59 @@
             // newGroupToolStripMenuItem
             // 
             this.newGroupToolStripMenuItem.Name = "newGroupToolStripMenuItem";
-            this.newGroupToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.newGroupToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.newGroupToolStripMenuItem.Text = "New Group...";
             this.newGroupToolStripMenuItem.Click += new System.EventHandler(this.NewToolStripMenuItem_Click);
             // 
             // newItemToolStripMenuItem
             // 
             this.newItemToolStripMenuItem.Name = "newItemToolStripMenuItem";
-            this.newItemToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.newItemToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.newItemToolStripMenuItem.Text = "New Shortcut...";
             this.newItemToolStripMenuItem.Click += new System.EventHandler(this.NewItemToolStripMenuItem_Click);
             // 
             // deleteToolStripMenuItem
             // 
             this.deleteToolStripMenuItem.Name = "deleteToolStripMenuItem";
-            this.deleteToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.deleteToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.deleteToolStripMenuItem.Text = "Delete";
             this.deleteToolStripMenuItem.Click += new System.EventHandler(this.DeleteToolStripMenuItem_Click);
             // 
             // propertiesToolStripMenuItem
             // 
             this.propertiesToolStripMenuItem.Name = "propertiesToolStripMenuItem";
-            this.propertiesToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.propertiesToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.propertiesToolStripMenuItem.Text = "Properties";
             this.propertiesToolStripMenuItem.Click += new System.EventHandler(this.PropertiesToolStripMenuItem_Click);
             // 
             // toolStripMenuItem2
             // 
             this.toolStripMenuItem2.Name = "toolStripMenuItem2";
-            this.toolStripMenuItem2.Size = new System.Drawing.Size(149, 6);
+            this.toolStripMenuItem2.Size = new System.Drawing.Size(177, 6);
             // 
             // executeToolStripMenuItem
             // 
             this.executeToolStripMenuItem.Name = "executeToolStripMenuItem";
-            this.executeToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.executeToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.executeToolStripMenuItem.Text = "Execute...";
             this.executeToolStripMenuItem.Click += new System.EventHandler(this.ExecuteToolStripMenuItem_Click);
             // 
             // settingsToolStripMenuItem
             // 
             this.settingsToolStripMenuItem.Name = "settingsToolStripMenuItem";
-            this.settingsToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.settingsToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.settingsToolStripMenuItem.Text = "Settings";
             this.settingsToolStripMenuItem.Click += new System.EventHandler(this.settingsToolStripMenuItem_Click);
             // 
             // toolStripMenuItem1
             // 
             this.toolStripMenuItem1.Name = "toolStripMenuItem1";
-            this.toolStripMenuItem1.Size = new System.Drawing.Size(149, 6);
+            this.toolStripMenuItem1.Size = new System.Drawing.Size(177, 6);
             // 
             // exitToolStripMenuItem
             // 
             this.exitToolStripMenuItem.Name = "exitToolStripMenuItem";
-            this.exitToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.exitToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.exitToolStripMenuItem.Text = "Exit";
             this.exitToolStripMenuItem.Click += new System.EventHandler(this.ExitToolStripMenuItem_Click);
             // 
@@ -160,26 +160,26 @@
             // mainProfileToolStripMenuItem
             // 
             this.mainProfileToolStripMenuItem.Name = "mainProfileToolStripMenuItem";
-            this.mainProfileToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
-            this.mainProfileToolStripMenuItem.Text = "Main";
+            this.mainProfileToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.mainProfileToolStripMenuItem.Text = "Local Folder";
             this.mainProfileToolStripMenuItem.Click += new System.EventHandler(this.mainProfileToolStripMenuItem_Click);
             // 
             // toolStripMenuItem3
             // 
             this.toolStripMenuItem3.Name = "toolStripMenuItem3";
-            this.toolStripMenuItem3.Size = new System.Drawing.Size(149, 6);
+            this.toolStripMenuItem3.Size = new System.Drawing.Size(177, 6);
             // 
             // addProfileToolStripMenuItem
             // 
             this.addProfileToolStripMenuItem.Name = "addProfileToolStripMenuItem";
-            this.addProfileToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.addProfileToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.addProfileToolStripMenuItem.Text = "Add Profile...";
             this.addProfileToolStripMenuItem.Click += new System.EventHandler(this.addProfileToolStripMenuItem_Click);
             // 
             // deleteProfileToolStripMenuItem
             // 
             this.deleteProfileToolStripMenuItem.Name = "deleteProfileToolStripMenuItem";
-            this.deleteProfileToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.deleteProfileToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.deleteProfileToolStripMenuItem.Text = "Delete Profile";
             this.deleteProfileToolStripMenuItem.Click += new System.EventHandler(this.deleteProfileToolStripMenuItem_Click);
             // 
@@ -197,21 +197,21 @@
             // tileVerticalToolStripMenuItem
             // 
             this.tileVerticalToolStripMenuItem.Name = "tileVerticalToolStripMenuItem";
-            this.tileVerticalToolStripMenuItem.Size = new System.Drawing.Size(150, 22);
+            this.tileVerticalToolStripMenuItem.Size = new System.Drawing.Size(151, 22);
             this.tileVerticalToolStripMenuItem.Text = "Tile Vertical";
             this.tileVerticalToolStripMenuItem.Click += new System.EventHandler(this.TileVerticalToolStripMenuItem_Click);
             // 
             // tileHorizontalToolStripMenuItem
             // 
             this.tileHorizontalToolStripMenuItem.Name = "tileHorizontalToolStripMenuItem";
-            this.tileHorizontalToolStripMenuItem.Size = new System.Drawing.Size(150, 22);
+            this.tileHorizontalToolStripMenuItem.Size = new System.Drawing.Size(151, 22);
             this.tileHorizontalToolStripMenuItem.Text = "Tile Horizontal";
             this.tileHorizontalToolStripMenuItem.Click += new System.EventHandler(this.TileHorizontalToolStripMenuItem_Click);
             // 
             // cascadeToolStripMenuItem
             // 
             this.cascadeToolStripMenuItem.Name = "cascadeToolStripMenuItem";
-            this.cascadeToolStripMenuItem.Size = new System.Drawing.Size(150, 22);
+            this.cascadeToolStripMenuItem.Size = new System.Drawing.Size(151, 22);
             this.cascadeToolStripMenuItem.Text = "Cascade";
             this.cascadeToolStripMenuItem.Click += new System.EventHandler(this.CascadeToolStripMenuItem_Click);
             // 
@@ -232,8 +232,9 @@
             // 
             // folderBrowserDialogProfile
             // 
-            this.folderBrowserDialogProfile.Description = "NRG Speciality";
+            this.folderBrowserDialogProfile.Description = "Add a folder containing shortcuts";
             this.folderBrowserDialogProfile.RootFolder = System.Environment.SpecialFolder.MyComputer;
+            this.folderBrowserDialogProfile.ShowNewFolderButton = true;
             // 
             // FormMain
             // 
@@ -247,7 +248,7 @@
             this.MainMenuStrip = this.menuStrip1;
             this.Name = "FormMain";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "Program Manager";
+            this.Text = "Program Manager .NET";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FormMain_FormClosing);
             this.Load += new System.EventHandler(this.FormMain_Load);
             this.menuStrip1.ResumeLayout(false);

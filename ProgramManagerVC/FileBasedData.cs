@@ -15,7 +15,7 @@ namespace ProgramManagerVC
     /// </summary>
     public static class FileBasedData
     {
-        private static string currentGroupsFolder = Path.Combine(Application.StartupPath, "Groups");
+        private static string currentGroupsFolder = Path.Combine(Application.StartupPath, "Shortcuts");
         
         /// <summary>
         /// Sets the groups folder to a custom location
@@ -56,7 +56,7 @@ namespace ProgramManagerVC
             // First, try to load from profile INI
             var profileGroups = GetGroupsFromProfileIni();
             
-            // Check for .lnk files in the root of the groups folder
+            // Check for .lnk files in the root of the shortcuts folder
             var rootLnkFiles = Directory.GetFiles(currentGroupsFolder, "*.lnk", SearchOption.TopDirectoryOnly);
             
             if (rootLnkFiles.Length > 0)
@@ -66,12 +66,13 @@ namespace ProgramManagerVC
                 if (programsGroup == null)
                 {
                     // Create a virtual "Programs" group for root .lnk files
+                    // Set to visible (1) by default for first-time display
                     programsGroup = new GroupInfo
                     {
                         Id = "0",
                         Name = "Programs",
                         FolderPath = currentGroupsFolder,
-                        WindowStatus = 1,
+                        WindowStatus = 1, // Visible by default
                         X = 100,
                         Y = 100,
                         Width = 400,
@@ -113,7 +114,7 @@ namespace ProgramManagerVC
                         Id = groups.Count.ToString(),
                         Name = dirInfo.Name,
                         FolderPath = directory,
-                        WindowStatus = 0, // 0 = Minimized by default
+                        WindowStatus = 0, // 0 = Minimized by default for subfolders
                         X = 100 + (groups.Count * 20), // Cascade windows
                         Y = 100 + (groups.Count * 20),
                         Width = 400,
@@ -345,7 +346,7 @@ namespace ProgramManagerVC
 
             var shortcutPath = Path.Combine(groupPath, shortcutName + ".lnk");
             
-            // Create the shortcut using IShellLink
+            // Create the shortcut using the public method
             CreateShortcutFile(shortcutPath, targetPath, arguments, iconPath, iconIndex);
         }
 
@@ -423,17 +424,7 @@ namespace ProgramManagerVC
             WriteIniValue(profileIniPath, "Profile", "Path", profilePath);
             WriteIniValue(profileIniPath, "Profile", "Created", DateTime.Now.ToString());
             
-            // Add default Programs group if it doesn't exist
-            var programsGroupSection = "Group_Programs";
-            if (string.IsNullOrEmpty(ReadIniString(profileIniPath, programsGroupSection, "Name", "")))
-            {
-                WriteIniValue(profileIniPath, programsGroupSection, "Name", "Programs");
-                WriteIniValue(profileIniPath, programsGroupSection, "Status", "0"); // 0 = Minimized by default
-                WriteIniValue(profileIniPath, programsGroupSection, "X", "100");
-                WriteIniValue(profileIniPath, programsGroupSection, "Y", "100");
-                WriteIniValue(profileIniPath, programsGroupSection, "Width", "400");
-                WriteIniValue(profileIniPath, programsGroupSection, "Height", "300");
-            }
+            // Don't create any default groups - let them be created when shortcuts are added
         }
 
         /// <summary>
@@ -720,7 +711,7 @@ namespace ProgramManagerVC
         /// <summary>
         /// Creates a .lnk shortcut file
         /// </summary>
-        private static void CreateShortcutFile(string shortcutPath, string targetPath, string arguments, string iconPath, int iconIndex)
+        public static void CreateShortcutFile(string shortcutPath, string targetPath, string arguments, string iconPath, int iconIndex)
         {
             try
             {
@@ -817,11 +808,11 @@ namespace ProgramManagerVC
             var profiles = new List<ProfileInfo>();
             var progmanIni = Path.Combine(Application.StartupPath, "Progman.ini");
             
-            // Always add the Main profile first
+            // Always add the Main profile first - now uses "Shortcuts" folder
             profiles.Add(new ProfileInfo
             {
                 Name = "Main",
-                Path = Path.Combine(Application.StartupPath, "Groups"),
+                Path = Path.Combine(Application.StartupPath, "Shortcuts"),
                 IsDefault = true
             });
             
@@ -850,10 +841,11 @@ namespace ProgramManagerVC
                 var profilesSection = ReadIniSection(progmanIni, "Profiles");
                 foreach (var profile in profilesSection)
                 {
-                    // Skip if it's one of our default profiles
+                    // Skip if it's one of our default profiles or if name is "Programs" (reserved)
                     if (profile.Key != "Main" && 
                         profile.Key != "Start Menu (All Users)" && 
-                        profile.Key != "Start Menu (Current User)" && 
+                        profile.Key != "Start Menu (Current User)" &&
+                        profile.Key != "Programs" && // Prevent "Programs" profile name
                         !string.IsNullOrEmpty(profile.Value))
                     {
                         profiles.Add(new ProfileInfo
