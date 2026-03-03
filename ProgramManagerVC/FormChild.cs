@@ -824,100 +824,61 @@ namespace ProgramManagerVC
             if (listViewMain.Items.Count == 0)
                 return 0;
 
-            // Get ListView client area
-            var clientRect = listViewMain.ClientRectangle;
+            // Get the dragged item to exclude it from calculations
+            var draggedItem = listViewMain.SelectedItems.Count > 0 ? listViewMain.SelectedItems[0] : null;
 
-            // Calculate approximate item dimensions including spacing
-            // ListView automatically spaces items, so we need to estimate
+            // Calculate grid layout based on first item
             var firstItem = listViewMain.Items[0];
             int itemWidth = firstItem.Bounds.Width;
             int itemHeight = firstItem.Bounds.Height;
 
-            // Calculate how many items fit per row
-            int itemsPerRow = Math.Max(1, clientRect.Width / itemWidth);
+            // Calculate items per row based on ListView width
+            int itemsPerRow = Math.Max(1, listViewMain.ClientRectangle.Width / itemWidth);
 
-            // Find the closest existing item to the drop point
-            int closestIndex = 0;
-            double closestDistance = double.MaxValue;
-
+            // Find insertion position by checking each potential slot
             for (int i = 0; i < listViewMain.Items.Count; i++)
             {
                 var item = listViewMain.Items[i];
-                var itemCenter = new Point(
-                    item.Bounds.X + item.Bounds.Width / 2,
-                    item.Bounds.Y + item.Bounds.Height / 2
-                );
 
-                // Calculate distance from drop point to item center
-                double distance = Math.Sqrt(
-                    Math.Pow(targetPoint.X - itemCenter.X, 2) + 
-                    Math.Pow(targetPoint.Y - itemCenter.Y, 2)
-                );
+                // Skip the dragged item in our calculations
+                if (item == draggedItem)
+                    continue;
 
-                if (distance < closestDistance)
+                // Calculate the "slot" boundaries for this item
+                int row = i / itemsPerRow;
+                int col = i % itemsPerRow;
+
+                Rectangle itemBounds = item.Bounds;
+
+                // Check if drop point is in the left half of this item's slot
+                if (targetPoint.X < itemBounds.X + itemBounds.Width / 2 && 
+                    targetPoint.Y >= itemBounds.Y && 
+                    targetPoint.Y <= itemBounds.Bottom)
                 {
-                    closestDistance = distance;
-                    closestIndex = i;
+                    // Insert before this item
+                    return i;
+                }
+
+                // Check if drop point is in the right half of this item's slot
+                if (targetPoint.X >= itemBounds.X + itemBounds.Width / 2 && 
+                    targetPoint.X <= itemBounds.Right &&
+                    targetPoint.Y >= itemBounds.Y && 
+                    targetPoint.Y <= itemBounds.Bottom)
+                {
+                    // Insert after this item
+                    return i + 1;
+                }
+
+                // Check if drop point is below this row
+                if (targetPoint.Y > itemBounds.Bottom)
+                {
+                    // Continue to check next items
+                    continue;
                 }
             }
 
-            // Now determine if we should insert before or after the closest item
-            var closestItem = listViewMain.Items[closestIndex];
-            var closestCenter = new Point(
-                closestItem.Bounds.X + closestItem.Bounds.Width / 2,
-                closestItem.Bounds.Y + closestItem.Bounds.Height / 2
-            );
-
-            // Calculate row and column of closest item
-            int closestRow = closestIndex / itemsPerRow;
-            int closestCol = closestIndex % itemsPerRow;
-
-            // Determine insertion position based on drop location relative to closest item
-            int insertIndex = closestIndex;
-
-            // If dropped to the right of item center, insert after
-            if (targetPoint.X > closestCenter.X)
-            {
-                // If it's the last item in the row, or last item overall
-                if (closestCol == itemsPerRow - 1 || closestIndex == listViewMain.Items.Count - 1)
-                {
-                    insertIndex = closestIndex + 1;
-                }
-                else
-                {
-                    // Check if we're closer to next item or this item
-                    if (closestIndex + 1 < listViewMain.Items.Count)
-                    {
-                        var nextItem = listViewMain.Items[closestIndex + 1];
-                        var nextCenter = new Point(
-                            nextItem.Bounds.X + nextItem.Bounds.Width / 2,
-                            nextItem.Bounds.Y + nextItem.Bounds.Height / 2
-                        );
-
-                        // If we're closer to the next item, insert after current
-                        if (Math.Abs(targetPoint.X - nextCenter.X) < Math.Abs(targetPoint.X - closestCenter.X))
-                        {
-                            insertIndex = closestIndex + 1;
-                        }
-                    }
-                    else
-                    {
-                        insertIndex = closestIndex + 1;
-                    }
-                }
-            }
-            // If dropped below the item center and we're at the end of a row, go to next row
-            else if (targetPoint.Y > closestCenter.Y + itemHeight / 4)
-            {
-                // Calculate position for next row
-                int nextRowStartIndex = (closestRow + 1) * itemsPerRow;
-                insertIndex = Math.Min(nextRowStartIndex, listViewMain.Items.Count);
-            }
-
-            // Ensure index is within valid range
-            insertIndex = Math.Max(0, Math.Min(insertIndex, listViewMain.Items.Count));
-
-            return insertIndex;
+            // If we get here, drop at the end
+            return listViewMain.Items.Count;
         }
 
         private void ReorderShortcut(ListViewItem draggedItem, int newIndex)
@@ -931,20 +892,24 @@ namespace ProgramManagerVC
                 var draggedShortcut = (ShortcutInfo)draggedItem.Tag;
                 var oldIndex = shortcuts.FindIndex(s => s.Name == draggedShortcut.Name);
 
-                if (oldIndex >= 0 && newIndex != oldIndex)
+                if (oldIndex >= 0 && newIndex != oldIndex && newIndex != oldIndex + 1)
                 {
                     // Remove from old position
                     shortcuts.RemoveAt(oldIndex);
 
-                    // Adjust new index if necessary
+                    // Adjust new index if we removed an item before the insertion point
+                    int adjustedIndex = newIndex;
                     if (newIndex > oldIndex)
-                        newIndex--;
+                        adjustedIndex = newIndex - 1;
+
+                    // Ensure index is within bounds
+                    adjustedIndex = Math.Max(0, Math.Min(adjustedIndex, shortcuts.Count));
 
                     // Insert at new position
-                    if (newIndex >= shortcuts.Count)
+                    if (adjustedIndex >= shortcuts.Count)
                         shortcuts.Add(draggedShortcut);
                     else
-                        shortcuts.Insert(newIndex, draggedShortcut);
+                        shortcuts.Insert(adjustedIndex, draggedShortcut);
 
                     // Update display orders
                     for (int i = 0; i < shortcuts.Count; i++)
