@@ -39,6 +39,7 @@
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             this.cutToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.copyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.renameToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
             this.deleteToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
@@ -81,13 +82,14 @@
             this.toolStripSeparator1,
             this.cutToolStripMenuItem,
             this.copyToolStripMenuItem,
+            this.renameToolStripMenuItem,
             this.toolStripSeparator2,
             this.deleteToolStripMenuItem,
             this.toolStripSeparator3,
             this.propertiesToolStripMenuItem});
             this.FileMenu.Name = "FileMenu";
             this.FileMenu.RenderMode = System.Windows.Forms.ToolStripRenderMode.System;
-            this.FileMenu.Size = new System.Drawing.Size(184, 176);
+            this.FileMenu.Size = new System.Drawing.Size(184, 198);
             // 
             // openToolStripMenuItem
             // 
@@ -129,6 +131,13 @@
             this.copyToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
             this.copyToolStripMenuItem.Text = "Copy icon to...";
             // 
+            // renameToolStripMenuItem
+            // 
+            this.renameToolStripMenuItem.Name = "renameToolStripMenuItem";
+            this.renameToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.renameToolStripMenuItem.Text = "Rename";
+            this.renameToolStripMenuItem.Click += new System.EventHandler(this.renameToolStripMenuItem_Click);
+            // 
             // toolStripSeparator2
             // 
             this.toolStripSeparator2.Name = "toolStripSeparator2";
@@ -168,7 +177,7 @@
             // 
             this.newItemToolStripMenuItem.Name = "newItemToolStripMenuItem";
             this.newItemToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
-            this.newItemToolStripMenuItem.Text = "New Item";
+            this.newItemToolStripMenuItem.Text = "New Shortcut...";
             this.newItemToolStripMenuItem.Click += new System.EventHandler(this.newItemToolStripMenuItem_Click);
             // 
             // toolStripSeparator4
@@ -219,6 +228,7 @@
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
         private System.Windows.Forms.ToolStripMenuItem cutToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem copyToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem renameToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
         private System.Windows.Forms.ToolStripMenuItem deleteToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator3;

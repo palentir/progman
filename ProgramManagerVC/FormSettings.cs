@@ -18,13 +18,13 @@ namespace ProgramManagerVC
 
         private void buttonOK_Click(object sender, EventArgs e)
         {
-            Properties.Settings.Default.UsernameInTitle = checkBoxUsername.Checked ? 1 : 0;
-            Properties.Settings.Default.Save();
+            progman64.Properties.Settings.Default.UsernameInTitle = checkBoxUsername.Checked ? 1 : 0;
+            progman64.Properties.Settings.Default.Save();
         }
 
         private void FormSettings_Load(object sender, EventArgs e)
         {
-            checkBoxUsername.Checked = Properties.Settings.Default.UsernameInTitle == 1 ? true : false;
+            checkBoxUsername.Checked = progman64.Properties.Settings.Default.UsernameInTitle == 1 ? true : false;
         }
 
         private void checkBoxShell_CheckedChanged(object sender, EventArgs e)

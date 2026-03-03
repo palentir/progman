@@ -14,7 +14,6 @@ namespace ProgramManagerVC
         private FormMain mainForm; // Store reference to FormMain
         private Icon groupsIcon;
         private Point mouseDownPoint;
-        private bool isDragging = false;
         private bool selected = false;
 
         public bool Selected
@@ -151,7 +150,6 @@ namespace ProgramManagerVC
         
         private void Control_DoubleClick(object sender, EventArgs e)
         {
-            isDragging = false;
             RestoreWindow();
         }
         
@@ -165,7 +163,6 @@ namespace ProgramManagerVC
                     mainForm.SetSelectedIcon(this);
                 }
                 mouseDownPoint = e.Location;
-                isDragging = false;
             }
             else if (e.Button == MouseButtons.Right)
             {
@@ -180,7 +177,7 @@ namespace ProgramManagerVC
 
         private void Control_MouseUp(object sender, MouseEventArgs e)
         {
-            isDragging = false;
+            // Mouse up handling if needed
         }
         
         private void RestoreWindow()
