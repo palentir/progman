@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -201,7 +201,7 @@ namespace ProgramManagerVC
                     // Show expanded path if it differs from original (contains environment variables)
                     if (shortcut.TargetPath != expandedPath)
                     {
-                        tooltip = $"{shortcut.TargetPath}\n→ {expandedPath}";
+                        tooltip = $"{shortcut.TargetPath}\n? {expandedPath}";
                     }
                     
                     if (!string.IsNullOrEmpty(shortcut.Arguments))
@@ -209,7 +209,7 @@ namespace ProgramManagerVC
                         string expandedArgs = FileBasedData.ExpandEnvironmentVariables(shortcut.Arguments);
                         if (shortcut.Arguments != expandedArgs)
                         {
-                            tooltip += $"\nArguments: {shortcut.Arguments}\n→ {expandedArgs}";
+                            tooltip += $"\nArguments: {shortcut.Arguments}\n? {expandedArgs}";
                         }
                         else
                         {
@@ -785,6 +785,12 @@ namespace ProgramManagerVC
                 // Refresh the items list
                 InitializeItems();
             }
+        }
+    
+        private void renameToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            // For now, just show properties dialog instead of rename
+            propertiesToolStripMenuItem_Click(sender, e);
         }
     }
 }

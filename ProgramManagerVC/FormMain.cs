@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -156,17 +156,17 @@ namespace ProgramManagerVC
                 if (profiles == null || profiles.Count == 0)
                 {
                     // Create default Main profile if no profiles exist
-                    var mainGroupsPath = Path.Combine(Application.StartupPath, "Shortcuts");
+                    var mainGroupsPath = Path.Combine(Application.StartupPath, "Programs");
                     if (!Directory.Exists(mainGroupsPath))
                         Directory.CreateDirectory(mainGroupsPath);
                     
                     // Create Main profile
-                    FileBasedData.SaveProfile("Main", mainGroupsPath);
-                    FileBasedData.SetCurrentProfile("Main");
+                    FileBasedData.SaveProfile("Default", mainGroupsPath);
+                    FileBasedData.SetCurrentProfile("Default");
                     
                     // Reload profiles
                     profiles = FileBasedData.GetAllProfiles();
-                    currentProfile = "Main";
+                    currentProfile = "Default";
                 }
                 
                 // Find active profile, default to first available if current not found
@@ -210,7 +210,7 @@ namespace ProgramManagerVC
                         {
                             child.StartPosition = FormStartPosition.Manual;
                             child.Location = new Point(Math.Max(0, groupInfo.X), Math.Max(0, groupInfo.Y));
-                            child.Size = new Size(Math.Max(300, groupInfo.Width), Math.Max(250, groupInfo.Height));
+                            child.Size = new Size(groupInfo.Width, groupInfo.Height);
                         }
                         else
                         {
@@ -233,7 +233,7 @@ namespace ProgramManagerVC
                         {
                             if (groupInfo.Name == "Programs")
                             {
-                                // Programs group (root shortcuts) should be visible on first display
+                                // Programs group (root Programs) should be visible on first display
                                 windowState = 1; // Normal/Visible
                                 windowToActivate = child; // Make it the active window
                             }
@@ -283,15 +283,15 @@ namespace ProgramManagerVC
                 }
                 else
                 {
-                    // No groups exist - this is normal for an empty Shortcuts folder
+                    // No groups exist - this is normal for an empty Programs folder
                     try
                     {
-                        // Ensure the Shortcuts folder exists
+                        // Ensure the Programs folder exists
                         if (!Directory.Exists(activeProfile.Path))
                             Directory.CreateDirectory(activeProfile.Path);
                         
-                        // Don't create any shortcuts - leave the Shortcuts folder empty
-                        // Users can add shortcuts manually as needed
+                        // Don't create any Programs - leave the Programs folder empty
+                        // Users can add Programs manually as needed
                         // No need to reload - just continue with empty state
                         
                         // Initialize the icon host for potential minimized icons
@@ -803,12 +803,12 @@ namespace ProgramManagerVC
             var currentProfile = FileBasedData.GetCurrentProfile();
             
             // Mark current profile (Local Folder represents Main profile)
-            mainProfileToolStripMenuItem.Checked = (currentProfile == "Main");
+            mainProfileToolStripMenuItem.Checked = (currentProfile == "Default");
             
             // Insert custom profiles after Local Folder but before separator
             int insertIndex = 1; // After Local Folder
             
-            foreach (var profile in profiles.Where(p => p.Name != "Main"))
+            foreach (var profile in profiles.Where(p => p.Name != "Default"))
             {
                 var profileItem = new ToolStripMenuItem(profile.Name);
                 profileItem.Checked = (currentProfile == profile.Name);
@@ -817,12 +817,12 @@ namespace ProgramManagerVC
             }
             
             // Enable/disable Delete Profile based on current selection
-            deleteProfileToolStripMenuItem.Enabled = (currentProfile != "Main");
+            deleteProfileToolStripMenuItem.Enabled = (currentProfile != "Default");
         }
 
         private void mainProfileToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            LoadProfile("Main");
+            LoadProfile("Default");
         }
 
         private void addProfileToolStripMenuItem_Click(object sender, EventArgs e)
@@ -832,7 +832,7 @@ namespace ProgramManagerVC
             // Use the enhanced folder browser experience
             using (var folderDialog = new FolderBrowserDialog())
             {
-                folderDialog.Description = "Add a folder containing shortcuts";
+                folderDialog.Description = "Add a folder containing Programs";
                 folderDialog.ShowNewFolderButton = true;
                 folderDialog.SelectedPath = Application.StartupPath;
                 
@@ -887,7 +887,7 @@ namespace ProgramManagerVC
         {
             var currentProfile = FileBasedData.GetCurrentProfile();
             
-            if (currentProfile == "Main")
+            if (currentProfile == "Default")
             {
                 MessageBox.Show("Cannot delete the Main profile.", 
                     "Cannot Delete", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -902,7 +902,7 @@ namespace ProgramManagerVC
                     FileBasedData.DeleteProfile(currentProfile);
                     
                     // Switch back to Main profile
-                    LoadProfile("Main");
+                    LoadProfile("Default");
                     
                     MessageBox.Show($"Profile '{currentProfile}' deleted successfully.", 
                         "Profile Deleted", MessageBoxButtons.OK, MessageBoxIcon.Information);
