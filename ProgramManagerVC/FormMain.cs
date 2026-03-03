@@ -118,7 +118,7 @@ namespace ProgramManagerVC
 
         private void InitializeTitle()
         {
-            if (Properties.Settings.Default.UsernameInTitle == 1)
+            if (progman64.Properties.Settings.Default.UsernameInTitle == 1)
             {
                 // Show only username without domain/workgroup
                 Text = $"Program Manager .NET - {Environment.UserName}";
