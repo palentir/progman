@@ -16,7 +16,8 @@ namespace ProgramManagerVC
     {
         private FormWindowState previousWindowState;
         private Icon originalIcon;
-        
+        private int currentIconSize = 32; // Default icon size
+
         public FormChild()
         {
             InitializeComponent();
@@ -42,6 +43,9 @@ namespace ProgramManagerVC
 
         private void FormChild_Load(object sender, EventArgs e)
         {
+            // Load saved icon size from INI
+            LoadIconSizeFromINI();
+
             InitializeItems();
             if (System.Environment.OSVersion.Version.Major < 6) {
                 runAsAdministratorToolStripMenuItem.Visible = false;
@@ -66,6 +70,10 @@ namespace ProgramManagerVC
             listViewMain.DragEnter += ListViewMain_DragEnter;
             listViewMain.DragDrop += ListViewMain_DragDrop;
             listViewMain.DragOver += ListViewMain_DragOver;
+
+            // Enable mouse wheel for icon sizing
+            this.MouseWheel += FormChild_MouseWheel;
+            listViewMain.MouseWheel += FormChild_MouseWheel;
         }
         
         private void ListMenu_Opening(object sender, System.ComponentModel.CancelEventArgs e)
@@ -188,14 +196,14 @@ namespace ProgramManagerVC
                     // Add the icon to the image list
                     if (extractedIcon != null)
                     {
-                        // Resize icon to fit the ImageList size (48x48)
-                        var bitmap = new Bitmap(extractedIcon.ToBitmap(), new Size(48, 48));
+                        // Resize icon to fit the current icon size
+                        var bitmap = new Bitmap(extractedIcon.ToBitmap(), new Size(currentIconSize, currentIconSize));
                         imageListIcons.Images.Add(bitmap);
                     }
                     else
                     {
                         // Ultimate fallback - use a default application icon
-                        var bitmap = new Bitmap(SystemIcons.Application.ToBitmap(), new Size(48, 48));
+                        var bitmap = new Bitmap(SystemIcons.Application.ToBitmap(), new Size(currentIconSize, currentIconSize));
                         imageListIcons.Images.Add(bitmap);
                     }
                     
@@ -236,7 +244,7 @@ namespace ProgramManagerVC
                     // Even if there's an exception, still show the item
                     System.Diagnostics.Debug.WriteLine($"Error processing shortcut {shortcut.Name}: {ex.Message}");
 
-                    var bitmap = new Bitmap(SystemIcons.Error.ToBitmap(), new Size(48, 48));
+                    var bitmap = new Bitmap(SystemIcons.Error.ToBitmap(), new Size(currentIconSize, currentIconSize));
                     imageListIcons.Images.Add(bitmap);
                     
                     ListViewItem item = new ListViewItem();
@@ -1010,5 +1018,145 @@ namespace ProgramManagerVC
             // For now, just show properties dialog instead of rename
             propertiesToolStripMenuItem_Click(sender, e);
         }
+
+        #region Icon Size Management
+
+        private void LoadIconSizeFromINI()
+        {
+            // Load saved icon size from application settings
+            var iconSizeStr = FileBasedData.LoadApplicationSetting("icon_size", "32");
+            if (int.TryParse(iconSizeStr, out int savedSize))
+            {
+                // Clamp to valid range (16 to 128)
+                currentIconSize = Math.Max(16, Math.Min(128, savedSize));
+            }
+            else
+            {
+                currentIconSize = 32; // Default
+            }
+
+            // Update ImageList size
+            imageListIcons.ImageSize = new Size(currentIconSize, currentIconSize);
+        }
+
+        private void SaveIconSizeToINI()
+        {
+            FileBasedData.SaveApplicationSettings("icon_size", currentIconSize.ToString());
+        }
+
+        private void FormChild_MouseWheel(object sender, MouseEventArgs e)
+        {
+            // Check if CTRL key is pressed
+            if (Control.ModifierKeys == Keys.Control)
+            {
+                // Calculate new size
+                int delta = e.Delta > 0 ? 4 : -4; // Increase/decrease by 4 pixels
+                int newSize = currentIconSize + delta;
+
+                // Clamp to valid range (16 to 128)
+                newSize = Math.Max(16, Math.Min(128, newSize));
+
+                if (newSize != currentIconSize)
+                {
+                    currentIconSize = newSize;
+
+                    // Update ImageList size
+                    imageListIcons.ImageSize = new Size(currentIconSize, currentIconSize);
+
+                    // Save to INI
+                    SaveIconSizeToINI();
+
+                    // Refresh icons with new size
+                    RefreshIconsWithNewSize();
+                }
+
+                // Prevent the mouse wheel from scrolling the ListView
+                ((HandledMouseEventArgs)e).Handled = true;
+            }
+        }
+
+        private void RefreshIconsWithNewSize()
+        {
+            // Store current shortcut data
+            var groupName = GetGroupNameFromId(this.Tag?.ToString() ?? "");
+            if (string.IsNullOrEmpty(groupName)) return;
+
+            var shortcuts = FileBasedData.GetShortcutsInGroupWithRoot(groupName);
+
+            // Clear and rebuild the image list with new size
+            imageListIcons.Images.Clear();
+            listViewMain.Items.Clear();
+
+            // Re-initialize items with new icon size
+            for (int i = 0; i < shortcuts.Count; i++)
+            {
+                var shortcut = shortcuts[i];
+
+                try
+                {
+                    // Try to load the icon
+                    Icon extractedIcon = ExtractIconFromShortcut(shortcut);
+
+                    // Add the icon to the image list with new size
+                    if (extractedIcon != null)
+                    {
+                        var bitmap = new Bitmap(extractedIcon.ToBitmap(), new Size(currentIconSize, currentIconSize));
+                        imageListIcons.Images.Add(bitmap);
+                    }
+                    else
+                    {
+                        var bitmap = new Bitmap(SystemIcons.Application.ToBitmap(), new Size(currentIconSize, currentIconSize));
+                        imageListIcons.Images.Add(bitmap);
+                    }
+
+                    ListViewItem item = new ListViewItem();
+                    item.Text = shortcut.Name;
+                    item.ImageIndex = i;
+
+                    // Build tooltip with target and arguments, showing environment variables if present
+                    string tooltip = shortcut.TargetPath;
+                    string expandedPath = FileBasedData.ExpandEnvironmentVariables(shortcut.TargetPath);
+
+                    // Show expanded path if it differs from original (contains environment variables)
+                    if (shortcut.TargetPath != expandedPath)
+                    {
+                        tooltip = $"{shortcut.TargetPath}\n→ {expandedPath}";
+                    }
+
+                    if (!string.IsNullOrEmpty(shortcut.Arguments))
+                    {
+                        string expandedArgs = FileBasedData.ExpandEnvironmentVariables(shortcut.Arguments);
+                        if (shortcut.Arguments != expandedArgs)
+                        {
+                            tooltip += $"\nArguments: {shortcut.Arguments}\n→ {expandedArgs}";
+                        }
+                        else
+                        {
+                            tooltip += $"\nArguments: {shortcut.Arguments}";
+                        }
+                    }
+
+                    item.ToolTipText = tooltip;
+                    item.Tag = shortcut;
+                    listViewMain.Items.Add(item);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error processing shortcut {shortcut.Name}: {ex.Message}");
+
+                    var bitmap = new Bitmap(SystemIcons.Error.ToBitmap(), new Size(currentIconSize, currentIconSize));
+                    imageListIcons.Images.Add(bitmap);
+
+                    ListViewItem item = new ListViewItem();
+                    item.Text = shortcut.Name;
+                    item.ImageIndex = i;
+                    item.ToolTipText = shortcut.TargetPath + " (Error loading)";
+                    item.Tag = shortcut;
+                    listViewMain.Items.Add(item);
+                }
+            }
+        }
+
+        #endregion
     }
 }

@@ -70,7 +70,7 @@
             // imageListIcons
             // 
             this.imageListIcons.ColorDepth = System.Windows.Forms.ColorDepth.Depth32Bit;
-            this.imageListIcons.ImageSize = new System.Drawing.Size(48, 48);
+            this.imageListIcons.ImageSize = new System.Drawing.Size(32, 32);
             this.imageListIcons.TransparentColor = System.Drawing.Color.Transparent;
             // 
             // FileMenu
