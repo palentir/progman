@@ -121,11 +121,11 @@ namespace ProgramManagerVC
             if (progman64.Properties.Settings.Default.UsernameInTitle == 1)
             {
                 // Show only username without domain/workgroup
-                Text = $"Program Manager .NET - {Environment.UserName}";
+                Text = $"PM.NET - {Environment.UserName}";
             }
             else
             {
-                Text = "Program Manager .NET";
+                Text = "PM.NET";
             }
         }
 
