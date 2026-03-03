@@ -15,7 +15,7 @@ namespace ProgramManagerVC
     /// </summary>
     public static class FileBasedData
     {
-        private static string currentGroupsFolder = Path.Combine(Application.StartupPath, "Programs");
+        private static string currentGroupsFolder = Path.Combine(Application.StartupPath, "Shortcuts");
         
         /// <summary>
         /// Sets the groups folder to a custom location
@@ -859,7 +859,7 @@ namespace ProgramManagerVC
             profiles.Add(new ProfileInfo
             {
                 Name = "Default",
-                Path = Path.Combine(Application.StartupPath, "Programs"),
+                Path = Path.Combine(Application.StartupPath, "Shortcuts"),
                 IsDefault = true
             });
             

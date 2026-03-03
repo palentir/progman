@@ -155,13 +155,13 @@ namespace ProgramManagerVC
                 // Ensure we have at least the Main profile
                 if (profiles == null || profiles.Count == 0)
                 {
-                    // Create default Main profile if no profiles exist
-                    var mainGroupsPath = Path.Combine(Application.StartupPath, "Programs");
-                    if (!Directory.Exists(mainGroupsPath))
-                        Directory.CreateDirectory(mainGroupsPath);
-                    
-                    // Create Main profile
-                    FileBasedData.SaveProfile("Default", mainGroupsPath);
+                    // Create default Default profile if no profiles exist - use "Shortcuts" as folder name
+                    var defaultShortcutsPath = Path.Combine(Application.StartupPath, "Shortcuts");
+                    if (!Directory.Exists(defaultShortcutsPath))
+                        Directory.CreateDirectory(defaultShortcutsPath);
+
+                    // Create Default profile
+                    FileBasedData.SaveProfile("Default", defaultShortcutsPath);
                     FileBasedData.SetCurrentProfile("Default");
                     
                     // Reload profiles
@@ -283,15 +283,15 @@ namespace ProgramManagerVC
                 }
                 else
                 {
-                    // No groups exist - this is normal for an empty Programs folder
+                    // No groups exist - this is normal for an empty Shortcuts folder
                     try
                     {
-                        // Ensure the Programs folder exists
+                        // Ensure the Shortcuts folder exists
                         if (!Directory.Exists(activeProfile.Path))
                             Directory.CreateDirectory(activeProfile.Path);
-                        
-                        // Don't create any Programs - leave the Programs folder empty
-                        // Users can add Programs manually as needed
+
+                        // Don't create any shortcuts - leave the Shortcuts folder empty
+                        // Users can add shortcuts manually as needed
                         // No need to reload - just continue with empty state
                         
                         // Initialize the icon host for potential minimized icons
