@@ -121,8 +121,11 @@ namespace ProgramManagerVC
                 {
                     mainForm.RemoveMinimizedIcon(this);
                 }
+
+                // Refresh shortcuts when window is restored from minimized
+                this.BeginInvoke(new Action(() => InitializeItems()));
             }
-            
+
             previousWindowState = this.WindowState;
         }
 
@@ -1115,11 +1118,34 @@ namespace ProgramManagerVC
 
             // Refresh icons with new size
             RefreshIconsWithNewSize();
+
+            // Notify main form to update all other windows
+            var mainForm = this.MdiParent as FormMain;
+            mainForm?.NotifyIconSizeChanged(this, newSize);
         }
 
         public int GetCurrentIconSize()
         {
             return currentIconSize;
+        }
+
+        /// <summary>
+        /// Sets icon size without triggering notifications (used by main form to sync all windows)
+        /// </summary>
+        public void SetIconSizeSilent(int newSize)
+        {
+            // Validate size is one of the allowed values
+            int[] allowedSizes = { 16, 32, 48, 64 };
+            if (!allowedSizes.Contains(newSize))
+                return;
+
+            currentIconSize = newSize;
+
+            // Update ImageList size
+            imageListIcons.ImageSize = new Size(currentIconSize, currentIconSize);
+
+            // Refresh icons with new size (but don't save or notify)
+            RefreshIconsWithNewSize();
         }
 
         private void RefreshIconsWithNewSize()

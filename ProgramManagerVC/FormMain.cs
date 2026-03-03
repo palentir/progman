@@ -373,6 +373,8 @@ namespace ProgramManagerVC
                     if (createform.ShowDialog() == DialogResult.OK)
                     {
                         activeChild.InitializeItems();
+                        // Refresh all other windows in case they're showing the same folder
+                        RefreshAllChildWindows();
                     }
                 }
             }
@@ -395,6 +397,8 @@ namespace ProgramManagerVC
                         var shortcutFileName = selectedItem.Text + ".lnk";
                         FileBasedData.DeleteShortcut(groupName, shortcutFileName);
                         activeChild.InitializeItems();
+                        // Refresh all other windows in case they're showing the same folder
+                        RefreshAllChildWindows();
                     }
                 }
                 else
@@ -614,9 +618,10 @@ namespace ProgramManagerVC
             // Apply icon size to all FormChild windows
             var childWindows = this.MdiChildren.OfType<FormChild>().ToList();
 
-            foreach (var child in childWindows)
+            if (childWindows.Count > 0)
             {
-                child.SetIconSize(iconSize);
+                // Use the first window to set the size (which will notify and update all others)
+                childWindows[0].SetIconSize(iconSize);
             }
         }
 
@@ -977,6 +982,43 @@ namespace ProgramManagerVC
             {
                 MessageBox.Show($"Error loading profile '{profileName}': {ex.Message}", 
                     "Load Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        #endregion
+
+        #region Universal Icon Size Management
+
+        /// <summary>
+        /// Notify that icon size changed from one window, update all others
+        /// </summary>
+        public void NotifyIconSizeChanged(FormChild originWindow, int newSize)
+        {
+            var childWindows = this.MdiChildren.OfType<FormChild>().ToList();
+
+            foreach (var child in childWindows)
+            {
+                // Update all windows except the one that initiated the change
+                if (child != originWindow)
+                {
+                    child.SetIconSizeSilent(newSize);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Refresh all child windows (useful when shortcuts are added/deleted)
+        /// </summary>
+        public void RefreshAllChildWindows()
+        {
+            var childWindows = this.MdiChildren.OfType<FormChild>().ToList();
+
+            foreach (var child in childWindows)
+            {
+                if (child.WindowState != FormWindowState.Minimized)
+                {
+                    child.BeginInvoke(new Action(() => child.InitializeItems()));
+                }
             }
         }
 
