@@ -551,9 +551,40 @@ namespace ProgramManagerVC
             windowsToolStripMenuItem.DropDownItems.Add(tileHorizontalToolStripMenuItem);
             windowsToolStripMenuItem.DropDownItems.Add(cascadeToolStripMenuItem);
 
+            // Add Icon Size submenu
+            var iconSizeMenu = new ToolStripMenuItem("Icon Size");
+
+            // Get current icon size from active window or default to 32
+            int currentIconSize = 32;
+            var activeChild = this.ActiveMdiChild as FormChild;
+            if (activeChild != null)
+            {
+                // We'll need to add a public property to get the current icon size
+                currentIconSize = activeChild.GetCurrentIconSize();
+            }
+
+            // Add icon size options
+            var smallItem = new ToolStripMenuItem("Small (16px)", null, (s, a) => SetAllChildrenIconSize(16));
+            smallItem.Checked = (currentIconSize == 16);
+            iconSizeMenu.DropDownItems.Add(smallItem);
+
+            var mediumItem = new ToolStripMenuItem("Medium (32px)", null, (s, a) => SetAllChildrenIconSize(32));
+            mediumItem.Checked = (currentIconSize == 32);
+            iconSizeMenu.DropDownItems.Add(mediumItem);
+
+            var largeItem = new ToolStripMenuItem("Large (48px)", null, (s, a) => SetAllChildrenIconSize(48));
+            largeItem.Checked = (currentIconSize == 48);
+            iconSizeMenu.DropDownItems.Add(largeItem);
+
+            var extraLargeItem = new ToolStripMenuItem("Extra Large (64px)", null, (s, a) => SetAllChildrenIconSize(64));
+            extraLargeItem.Checked = (currentIconSize == 64);
+            iconSizeMenu.DropDownItems.Add(extraLargeItem);
+
+            windowsToolStripMenuItem.DropDownItems.Add(iconSizeMenu);
+
             // Get only FormChild windows (exclude IconHostForm)
             var childWindows = this.MdiChildren.OfType<FormChild>().ToList();
-            
+
             if (childWindows.Count > 0)
             {
                 windowsToolStripMenuItem.DropDownItems.Add(new ToolStripSeparator());
@@ -564,17 +595,28 @@ namespace ProgramManagerVC
             {
                 FormChild child = childWindows[i];
                 int windowNumber = i + 1;
-                
+
                 ToolStripMenuItem item = new ToolStripMenuItem($"{windowNumber} {child.Text}", null, (s, a) =>
                 {
                     child.BringToFront();
                     child.Activate();
                 });
-                
+
                 // Add checkmark to currently active window (only if not minimized)
                 item.Checked = (child == this.ActiveMdiChild && child.WindowState != FormWindowState.Minimized);
-                
+
                 windowsToolStripMenuItem.DropDownItems.Add(item);
+            }
+        }
+
+        private void SetAllChildrenIconSize(int iconSize)
+        {
+            // Apply icon size to all FormChild windows
+            var childWindows = this.MdiChildren.OfType<FormChild>().ToList();
+
+            foreach (var child in childWindows)
+            {
+                child.SetIconSize(iconSize);
             }
         }
 

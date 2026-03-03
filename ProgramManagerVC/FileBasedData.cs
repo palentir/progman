@@ -617,20 +617,20 @@ namespace ProgramManagerVC
         }
 
         /// <summary>
-        /// Saves application settings to Progman.ini in the application folder
+        /// Saves application settings to progman64.ini in the application folder
         /// </summary>
         public static void SaveApplicationSettings(string key, string value)
         {
-            var progmanIni = Path.Combine(Application.StartupPath, "Progman.ini");
+            var progmanIni = Path.Combine(Application.StartupPath, "progman64.ini");
             WriteIniValue(progmanIni, "Application", key, value);
         }
 
         /// <summary>
-        /// Loads application settings from Progman.ini
+        /// Loads application settings from progman64.ini
         /// </summary>
         public static string LoadApplicationSetting(string key, string defaultValue = "")
         {
-            var progmanIni = Path.Combine(Application.StartupPath, "Progman.ini");
+            var progmanIni = Path.Combine(Application.StartupPath, "progman64.ini");
             return ReadIniString(progmanIni, "Application", key, defaultValue);
         }
 
@@ -885,11 +885,11 @@ namespace ProgramManagerVC
         #region Profile Management
 
         /// <summary>
-        /// Saves a profile to Progman.ini and creates the profile INI file
+        /// Saves a profile to progman64.ini and creates the profile INI file
         /// </summary>
         public static void SaveProfile(string name, string path)
         {
-            var progmanIni = Path.Combine(Application.StartupPath, "Progman.ini");
+            var progmanIni = Path.Combine(Application.StartupPath, "progman64.ini");
             WriteIniValue(progmanIni, "Profiles", name, path);
             
             // Create the profile INI file
@@ -897,13 +897,13 @@ namespace ProgramManagerVC
         }
 
         /// <summary>
-        /// Deletes a profile from Progman.ini and removes the profile INI file
+        /// Deletes a profile from progman64.ini and removes the profile INI file
         /// </summary>
         public static void DeleteProfile(string name)
         {
             if (name == "Default") return; // Cannot delete Default profile
             
-            var progmanIni = Path.Combine(Application.StartupPath, "Progman.ini");
+            var progmanIni = Path.Combine(Application.StartupPath, "progman64.ini");
             WriteIniValue(progmanIni, "Profiles", name, ""); // Empty value effectively deletes
             
             // Delete the profile INI file
@@ -938,12 +938,12 @@ namespace ProgramManagerVC
         #region Profile Helper Methods
 
         /// <summary>
-        /// Gets all profiles configured in Progman.ini
+        /// Gets all profiles configured in progman64.ini
         /// </summary>
         public static List<ProfileInfo> GetAllProfiles()
         {
             var profiles = new List<ProfileInfo>();
-            var progmanIni = Path.Combine(Application.StartupPath, "Progman.ini");
+            var progmanIni = Path.Combine(Application.StartupPath, "progman64.ini");
             
             // Always add the Default profile first
             profiles.Add(new ProfileInfo

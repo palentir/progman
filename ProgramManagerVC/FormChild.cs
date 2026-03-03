@@ -1027,8 +1027,17 @@ namespace ProgramManagerVC
             var iconSizeStr = FileBasedData.LoadApplicationSetting("icon_size", "32");
             if (int.TryParse(iconSizeStr, out int savedSize))
             {
-                // Clamp to valid range (16 to 128)
-                currentIconSize = Math.Max(16, Math.Min(128, savedSize));
+                // Validate against allowed sizes: 16, 32, 48, 64
+                int[] allowedSizes = { 16, 32, 48, 64 };
+                if (allowedSizes.Contains(savedSize))
+                {
+                    currentIconSize = savedSize;
+                }
+                else
+                {
+                    // Find closest allowed size
+                    currentIconSize = allowedSizes.OrderBy(s => Math.Abs(s - savedSize)).First();
+                }
             }
             else
             {
@@ -1049,30 +1058,68 @@ namespace ProgramManagerVC
             // Check if CTRL key is pressed
             if (Control.ModifierKeys == Keys.Control)
             {
-                // Calculate new size
-                int delta = e.Delta > 0 ? 4 : -4; // Increase/decrease by 4 pixels
-                int newSize = currentIconSize + delta;
+                // Fixed icon sizes: 16, 32, 48, 64
+                int[] iconSizes = { 16, 32, 48, 64 };
+                int currentIndex = Array.IndexOf(iconSizes, currentIconSize);
 
-                // Clamp to valid range (16 to 128)
-                newSize = Math.Max(16, Math.Min(128, newSize));
+                // If current size is not in the array, find the closest one
+                if (currentIndex == -1)
+                {
+                    currentIndex = 1; // Default to 32
+                    for (int i = 0; i < iconSizes.Length; i++)
+                    {
+                        if (Math.Abs(iconSizes[i] - currentIconSize) < Math.Abs(iconSizes[currentIndex] - currentIconSize))
+                        {
+                            currentIndex = i;
+                        }
+                    }
+                }
+
+                // Calculate new index
+                int newIndex = currentIndex;
+                if (e.Delta > 0 && currentIndex < iconSizes.Length - 1)
+                {
+                    newIndex = currentIndex + 1; // Increase size
+                }
+                else if (e.Delta < 0 && currentIndex > 0)
+                {
+                    newIndex = currentIndex - 1; // Decrease size
+                }
+
+                int newSize = iconSizes[newIndex];
 
                 if (newSize != currentIconSize)
                 {
-                    currentIconSize = newSize;
-
-                    // Update ImageList size
-                    imageListIcons.ImageSize = new Size(currentIconSize, currentIconSize);
-
-                    // Save to INI
-                    SaveIconSizeToINI();
-
-                    // Refresh icons with new size
-                    RefreshIconsWithNewSize();
+                    SetIconSize(newSize);
                 }
 
                 // Prevent the mouse wheel from scrolling the ListView
                 ((HandledMouseEventArgs)e).Handled = true;
             }
+        }
+
+        public void SetIconSize(int newSize)
+        {
+            // Validate size is one of the allowed values
+            int[] allowedSizes = { 16, 32, 48, 64 };
+            if (!allowedSizes.Contains(newSize))
+                return;
+
+            currentIconSize = newSize;
+
+            // Update ImageList size
+            imageListIcons.ImageSize = new Size(currentIconSize, currentIconSize);
+
+            // Save to INI
+            SaveIconSizeToINI();
+
+            // Refresh icons with new size
+            RefreshIconsWithNewSize();
+        }
+
+        public int GetCurrentIconSize()
+        {
+            return currentIconSize;
         }
 
         private void RefreshIconsWithNewSize()
