@@ -302,6 +302,10 @@ namespace ProgramManagerVC
             }
 
             System.Diagnostics.Debug.WriteLine($"Successfully loaded {shortcuts.Count} shortcuts for group '{groupName}'");
+
+            // Load display order from INI and apply it
+            LoadShortcutDisplayOrder(shortcuts, groupName);
+
             return shortcuts;
         }
 
@@ -340,7 +344,10 @@ namespace ProgramManagerVC
                 var subFolderShortcuts = GetShortcutsInGroup(groupName);
                 shortcuts.AddRange(subFolderShortcuts);
             }
-            
+
+            // Load display order from INI and apply it
+            LoadShortcutDisplayOrder(shortcuts, groupName);
+
             return shortcuts;
         }
 
@@ -371,6 +378,89 @@ namespace ProgramManagerVC
             {
                 File.Delete(shortcutPath);
             }
+        }
+
+        #endregion
+
+        #region Shortcut Display Order Management
+
+        /// <summary>
+        /// Loads and applies display order from INI file
+        /// </summary>
+        private static void LoadShortcutDisplayOrder(List<ShortcutInfo> shortcuts, string groupName)
+        {
+            var currentProfile = GetCurrentProfile();
+            var profileIniPath = Path.Combine(Application.StartupPath, currentProfile + ".ini");
+
+            if (!File.Exists(profileIniPath))
+                return;
+
+            var sectionName = groupName == "Programs" ? "ShortcutOrder_Programs" : $"ShortcutOrder_{groupName}";
+
+            for (int i = 0; i < shortcuts.Count; i++)
+            {
+                var keyName = $"Shortcut_{i}";
+                var savedName = ReadIniString(profileIniPath, sectionName, keyName, "");
+
+                if (!string.IsNullOrEmpty(savedName))
+                {
+                    // Find shortcut by name and assign display order
+                    var foundShortcut = shortcuts.FirstOrDefault(s => s.Name == savedName);
+                    if (foundShortcut != null)
+                    {
+                        foundShortcut.DisplayOrder = i;
+                    }
+                }
+            }
+
+            // Sort by display order, then by name for any without order
+            shortcuts.Sort((a, b) => 
+            {
+                if (a.DisplayOrder != b.DisplayOrder)
+                    return a.DisplayOrder.CompareTo(b.DisplayOrder);
+                return string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
+            });
+        }
+
+        /// <summary>
+        /// Saves shortcut display order to INI file
+        /// </summary>
+        public static void SaveShortcutDisplayOrder(List<ShortcutInfo> shortcuts, string groupName)
+        {
+            var currentProfile = GetCurrentProfile();
+            var profileIniPath = Path.Combine(Application.StartupPath, currentProfile + ".ini");
+
+            var sectionName = groupName == "Programs" ? "ShortcutOrder_Programs" : $"ShortcutOrder_{groupName}";
+
+            // Clear existing entries
+            var allSections = GetAllIniSections(profileIniPath);
+            if (allSections.Contains(sectionName))
+            {
+                // Remove the entire section first
+                WritePrivateProfileString(sectionName, null, null, profileIniPath);
+            }
+
+            // Save new order
+            for (int i = 0; i < shortcuts.Count; i++)
+            {
+                var keyName = $"Shortcut_{i}";
+                WriteIniValue(profileIniPath, sectionName, keyName, shortcuts[i].Name);
+            }
+        }
+
+        /// <summary>
+        /// Updates display order when a shortcut is moved
+        /// </summary>
+        public static void UpdateShortcutOrder(string groupName, string shortcutName, int newPosition, List<ShortcutInfo> allShortcuts)
+        {
+            // Update display orders
+            for (int i = 0; i < allShortcuts.Count; i++)
+            {
+                allShortcuts[i].DisplayOrder = i;
+            }
+
+            // Save to INI
+            SaveShortcutDisplayOrder(allShortcuts, groupName);
         }
 
         #endregion
@@ -1019,6 +1109,7 @@ namespace ProgramManagerVC
         public string Description { get; set; }
         public string IconLocation { get; set; }
         public int IconIndex { get; set; }
+        public int DisplayOrder { get; set; }
     }
 
     /// <summary>

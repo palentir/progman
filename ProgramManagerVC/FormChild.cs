@@ -48,18 +48,24 @@ namespace ProgramManagerVC
             } else {
                 runAsAdministratorToolStripMenuItem.Image = SystemIcons.Shield.ToBitmap();
             }
-            
+
+            // Configure ListView for better icon display
+            listViewMain.View = View.LargeIcon;
+
+            // The larger ImageList size (48x48) will automatically provide better spacing
+
             previousWindowState = this.WindowState;
             this.Resize += FormChild_Resize;
-            
+
             // Hook up the ListMenu opening event to control delete button
             this.ListMenu.Opening += ListMenu_Opening;
-            
+
             // Enable drag & drop for the ListView
             listViewMain.AllowDrop = true;
             listViewMain.ItemDrag += ListViewMain_ItemDrag;
             listViewMain.DragEnter += ListViewMain_DragEnter;
             listViewMain.DragDrop += ListViewMain_DragDrop;
+            listViewMain.DragOver += ListViewMain_DragOver;
         }
         
         private void ListMenu_Opening(object sender, System.ComponentModel.CancelEventArgs e)
@@ -182,12 +188,15 @@ namespace ProgramManagerVC
                     // Add the icon to the image list
                     if (extractedIcon != null)
                     {
-                        imageListIcons.Images.Add(extractedIcon.ToBitmap());
+                        // Resize icon to fit the ImageList size (48x48)
+                        var bitmap = new Bitmap(extractedIcon.ToBitmap(), new Size(48, 48));
+                        imageListIcons.Images.Add(bitmap);
                     }
                     else
                     {
                         // Ultimate fallback - use a default application icon
-                        imageListIcons.Images.Add(SystemIcons.Application.ToBitmap());
+                        var bitmap = new Bitmap(SystemIcons.Application.ToBitmap(), new Size(48, 48));
+                        imageListIcons.Images.Add(bitmap);
                     }
                     
                     ListViewItem item = new ListViewItem();
@@ -226,8 +235,9 @@ namespace ProgramManagerVC
                 {
                     // Even if there's an exception, still show the item
                     System.Diagnostics.Debug.WriteLine($"Error processing shortcut {shortcut.Name}: {ex.Message}");
-                    
-                    imageListIcons.Images.Add(SystemIcons.Error.ToBitmap());
+
+                    var bitmap = new Bitmap(SystemIcons.Error.ToBitmap(), new Size(48, 48));
+                    imageListIcons.Images.Add(bitmap);
                     
                     ListViewItem item = new ListViewItem();
                     item.Text = shortcut.Name;
@@ -577,7 +587,16 @@ namespace ProgramManagerVC
                         {
                             File.Delete(shortcutInfo.ShortcutPath);
                         }
-                        
+
+                        // Update icon ordering after deletion
+                        var groupName = GetGroupNameFromId(this.Tag?.ToString() ?? "");
+                        var shortcuts = FileBasedData.GetShortcutsInGroupWithRoot(groupName);
+                        for (int i = 0; i < shortcuts.Count; i++)
+                        {
+                            shortcuts[i].DisplayOrder = i;
+                        }
+                        FileBasedData.SaveShortcutDisplayOrder(shortcuts, groupName);
+
                         InitializeItems();
                     }
                     catch (Exception ex)
@@ -690,21 +709,56 @@ namespace ProgramManagerVC
         {
             if (e.Item is ListViewItem item && item.Tag is ShortcutInfo shortcut)
             {
-                // Create a file collection for dragging out
+                // Create a data object containing both the ListViewItem (for same-window reordering) 
+                // and file path (for cross-window copying)
+                var dataObject = new DataObject();
+
+                // Add the ListViewItem for internal reordering
+                dataObject.SetData(typeof(ListViewItem), item);
+
+                // Add file collection for copying to other windows/applications
                 var fileCollection = new System.Collections.Specialized.StringCollection();
                 fileCollection.Add(shortcut.ShortcutPath);
-                
-                var dataObject = new DataObject();
                 dataObject.SetFileDropList(fileCollection);
-                
-                listViewMain.DoDragDrop(dataObject, DragDropEffects.Copy);
+
+                listViewMain.DoDragDrop(dataObject, DragDropEffects.Move | DragDropEffects.Copy);
             }
         }
-        
-        private void ListViewMain_DragEnter(object sender, DragEventArgs e)
+
+        private void ListViewMain_DragOver(object sender, DragEventArgs e)
         {
-            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            if (e.Data.GetDataPresent(typeof(ListViewItem)))
             {
+                // Check if it's from the same ListView (same window reordering)
+                var draggedItem = (ListViewItem)e.Data.GetData(typeof(ListViewItem));
+                if (draggedItem != null && draggedItem.ListView == listViewMain)
+                {
+                    // Handle internal drag & drop for reordering within same window
+                    Point targetPoint = listViewMain.PointToClient(new Point(e.X, e.Y));
+                    ListViewItem targetItem = listViewMain.GetItemAt(targetPoint.X, targetPoint.Y);
+
+                    if (targetItem != null)
+                    {
+                        // Over an existing item - show no-drop cursor
+                        e.Effect = DragDropEffects.None;
+                        Cursor.Current = Cursors.No;
+                    }
+                    else
+                    {
+                        // Over empty space - allow drop for reordering
+                        e.Effect = DragDropEffects.Move;
+                        Cursor.Current = Cursors.Default;
+                    }
+                }
+                else
+                {
+                    // Different window - show copy cursor
+                    e.Effect = DragDropEffects.Copy;
+                }
+            }
+            else if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                // Handle external file drop
                 e.Effect = DragDropEffects.Copy;
             }
             else
@@ -712,79 +766,187 @@ namespace ProgramManagerVC
                 e.Effect = DragDropEffects.None;
             }
         }
-        
+
+        private void ListViewMain_DragEnter(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(typeof(ListViewItem)) || e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                e.Effect = DragDropEffects.Move | DragDropEffects.Copy;
+            }
+            else
+            {
+                e.Effect = DragDropEffects.None;
+            }
+        }
+
         private void ListViewMain_DragDrop(object sender, DragEventArgs e)
         {
-            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            if (e.Data.GetDataPresent(typeof(ListViewItem)))
             {
-                string[] droppedItems = (string[])e.Data.GetData(DataFormats.FileDrop);
-                var groupName = GetGroupNameFromId(this.Tag?.ToString() ?? "");
-                
-                if (string.IsNullOrEmpty(groupName))
-                    return;
-                
-                foreach (string itemPath in droppedItems)
+                var draggedItem = (ListViewItem)e.Data.GetData(typeof(ListViewItem));
+
+                if (draggedItem != null && draggedItem.ListView == listViewMain)
                 {
-                    try
+                    // Same window - handle reordering
+                    Point targetPoint = listViewMain.PointToClient(new Point(e.X, e.Y));
+                    ListViewItem targetItem = listViewMain.GetItemAt(targetPoint.X, targetPoint.Y);
+
+                    if (targetItem == null)
                     {
-                        if (File.Exists(itemPath))
-                        {
-                            // It's a file
-                            string fileName = Path.GetFileName(itemPath);
-                            string extension = Path.GetExtension(itemPath).ToLower();
-                            
-                            if (extension == ".lnk")
-                            {
-                                // Copy .lnk file directly
-                                var destPath = Path.Combine(FileBasedData.GetGroupsFolder(), groupName, fileName);
-                                if (groupName == "Programs")
-                                {
-                                    // For Programs group, copy to root if no subfolder exists
-                                    var groupFolder = Path.Combine(FileBasedData.GetGroupsFolder(), groupName);
-                                    if (!Directory.Exists(groupFolder))
-                                        destPath = Path.Combine(FileBasedData.GetGroupsFolder(), fileName);
-                                }
-                                
-                                File.Copy(itemPath, destPath, true);
-                            }
-                            else
-                            {
-                                // Create shortcut for the file
-                                string shortcutName = Path.GetFileNameWithoutExtension(fileName);
-                                FileBasedData.CreateShortcut(groupName, shortcutName, itemPath, "", itemPath, 0);
-                            }
-                        }
-                        else if (Directory.Exists(itemPath))
-                        {
-                            // It's a folder - copy all .lnk files from it
-                            string folderName = Path.GetDirectoryName(itemPath);
-                            var lnkFiles = Directory.GetFiles(itemPath, "*.lnk", SearchOption.AllDirectories);
-                            
-                            foreach (var lnkFile in lnkFiles)
-                            {
-                                string lnkFileName = Path.GetFileName(lnkFile);
-                                var destPath = Path.Combine(FileBasedData.GetGroupsFolder(), groupName, lnkFileName);
-                                if (groupName == "Programs")
-                                {
-                                    var groupFolder = Path.Combine(FileBasedData.GetGroupsFolder(), groupName);
-                                    if (!Directory.Exists(groupFolder))
-                                        destPath = Path.Combine(FileBasedData.GetGroupsFolder(), lnkFileName);
-                                }
-                                
-                                File.Copy(lnkFile, destPath, true);
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show($"Error copying {Path.GetFileName(itemPath)}: {ex.Message}",
-                            "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        // Dropped on empty space - calculate new position
+                        int newIndex = CalculateDropIndex(targetPoint);
+                        ReorderShortcut(draggedItem, newIndex);
                     }
                 }
-                
-                // Refresh the items list
-                InitializeItems();
+                else if (e.Data.GetDataPresent(DataFormats.FileDrop))
+                {
+                    // Different window or external drop - handle file copying
+                    HandleFileDrop(e);
+                }
             }
+            else if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                // Handle external file drop (existing functionality)
+                HandleFileDrop(e);
+            }
+        }
+
+        private int CalculateDropIndex(Point targetPoint)
+        {
+            // Calculate the best insertion point based on the drop location
+            for (int i = 0; i < listViewMain.Items.Count; i++)
+            {
+                var item = listViewMain.Items[i];
+                Rectangle itemBounds = item.Bounds;
+
+                if (targetPoint.Y < itemBounds.Bottom)
+                {
+                    return i;
+                }
+            }
+
+            // If dropped below all items, insert at end
+            return listViewMain.Items.Count;
+        }
+
+        private void ReorderShortcut(ListViewItem draggedItem, int newIndex)
+        {
+            try
+            {
+                var groupName = GetGroupNameFromId(this.Tag?.ToString() ?? "");
+                var shortcuts = FileBasedData.GetShortcutsInGroupWithRoot(groupName);
+
+                // Find the dragged shortcut
+                var draggedShortcut = (ShortcutInfo)draggedItem.Tag;
+                var oldIndex = shortcuts.FindIndex(s => s.Name == draggedShortcut.Name);
+
+                if (oldIndex >= 0 && newIndex != oldIndex)
+                {
+                    // Remove from old position
+                    shortcuts.RemoveAt(oldIndex);
+
+                    // Adjust new index if necessary
+                    if (newIndex > oldIndex)
+                        newIndex--;
+
+                    // Insert at new position
+                    if (newIndex >= shortcuts.Count)
+                        shortcuts.Add(draggedShortcut);
+                    else
+                        shortcuts.Insert(newIndex, draggedShortcut);
+
+                    // Update display orders
+                    for (int i = 0; i < shortcuts.Count; i++)
+                    {
+                        shortcuts[i].DisplayOrder = i;
+                    }
+
+                    // Save the new order
+                    FileBasedData.SaveShortcutDisplayOrder(shortcuts, groupName);
+
+                    // Refresh the display
+                    InitializeItems();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error reordering shortcut: {ex.Message}",
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void HandleFileDrop(DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+                {
+                    string[] droppedItems = (string[])e.Data.GetData(DataFormats.FileDrop);
+                    var groupName = GetGroupNameFromId(this.Tag?.ToString() ?? "");
+
+                    if (string.IsNullOrEmpty(groupName))
+                        return;
+
+                    foreach (string itemPath in droppedItems)
+                    {
+                        try
+                        {
+                            if (File.Exists(itemPath))
+                            {
+                                // It's a file
+                                string fileName = Path.GetFileName(itemPath);
+                                string extension = Path.GetExtension(itemPath).ToLower();
+
+                                if (extension == ".lnk")
+                                {
+                                    // Copy .lnk file directly
+                                    var destPath = Path.Combine(FileBasedData.GetGroupsFolder(), groupName, fileName);
+                                    if (groupName == "Programs")
+                                    {
+                                        // For Programs group, copy to root if no subfolder exists
+                                        var groupFolder = Path.Combine(FileBasedData.GetGroupsFolder(), groupName);
+                                        if (!Directory.Exists(groupFolder))
+                                            destPath = Path.Combine(FileBasedData.GetGroupsFolder(), fileName);
+                                    }
+
+                                    File.Copy(itemPath, destPath, true);
+                                }
+                                else
+                                {
+                                    // Create shortcut for the file
+                                    string shortcutName = Path.GetFileNameWithoutExtension(fileName);
+                                    FileBasedData.CreateShortcut(groupName, shortcutName, itemPath, "", itemPath, 0);
+                                }
+                            }
+                            else if (Directory.Exists(itemPath))
+                            {
+                                // It's a folder - copy all .lnk files from it
+                                string folderName = Path.GetDirectoryName(itemPath);
+                                var lnkFiles = Directory.GetFiles(itemPath, "*.lnk", SearchOption.AllDirectories);
+
+                                foreach (var lnkFile in lnkFiles)
+                                {
+                                    string lnkFileName = Path.GetFileName(lnkFile);
+                                    var destPath = Path.Combine(FileBasedData.GetGroupsFolder(), groupName, lnkFileName);
+                                    if (groupName == "Programs")
+                                    {
+                                        var groupFolder = Path.Combine(FileBasedData.GetGroupsFolder(), groupName);
+                                        if (!Directory.Exists(groupFolder))
+                                            destPath = Path.Combine(FileBasedData.GetGroupsFolder(), lnkFileName);
+                                    }
+
+                                    File.Copy(lnkFile, destPath, true);
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show($"Error copying {Path.GetFileName(itemPath)}: {ex.Message}",
+                                "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                    }
+
+                    // Refresh the items list
+                    InitializeItems();
+                }
         }
     
         private void renameToolStripMenuItem_Click(object sender, EventArgs e)
