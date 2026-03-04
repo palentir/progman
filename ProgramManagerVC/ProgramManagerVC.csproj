@@ -94,6 +94,8 @@
     <Compile Include="IconHostForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="JsonBasedData.cs" />
+    <Compile Include="JsonConfig.cs" />
     <Compile Include="MinimizedIcon.cs">
       <SubType>UserControl</SubType>
     </Compile>
