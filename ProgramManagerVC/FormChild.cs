@@ -88,7 +88,7 @@ namespace ProgramManagerVC
         private bool IsProtectedGroup(string groupName)
         {
             // Protect Default profile built-in groups and Start Menu groups
-            var currentProfile = FileBasedData.GetCurrentProfile();
+            var currentProfile = JsonBasedData.GetCurrentProfile();
             
             if (currentProfile == "Default")
             {
@@ -136,7 +136,7 @@ namespace ProgramManagerVC
                 var shortcutInfo = (ShortcutInfo)listViewMain.SelectedItems[0].Tag;
                 
                 // Expand environment variables before checking file existence
-                string expandedTargetPath = FileBasedData.ExpandEnvironmentVariables(shortcutInfo.TargetPath);
+                string expandedTargetPath = JsonBasedData.ExpandEnvironmentVariables(shortcutInfo.TargetPath);
                 
                 // Check if file exists before trying to launch it
                 if (System.IO.File.Exists(expandedTargetPath))
@@ -145,9 +145,9 @@ namespace ProgramManagerVC
                     {
                         var psi = new ProcessStartInfo();
                         psi.FileName = expandedTargetPath;
-                        psi.Arguments = FileBasedData.ExpandEnvironmentVariables(shortcutInfo.Arguments ?? "");
+                        psi.Arguments = JsonBasedData.ExpandEnvironmentVariables(shortcutInfo.Arguments ?? "");
                         
-                        string expandedWorkingDir = FileBasedData.ExpandEnvironmentVariables(shortcutInfo.WorkingDirectory ?? "");
+                        string expandedWorkingDir = JsonBasedData.ExpandEnvironmentVariables(shortcutInfo.WorkingDirectory ?? "");
                         if (string.IsNullOrEmpty(expandedWorkingDir))
                             expandedWorkingDir = Path.GetDirectoryName(expandedTargetPath);
                         
@@ -185,7 +185,7 @@ namespace ProgramManagerVC
             if (string.IsNullOrEmpty(groupName)) return;
 
             // Use the root-handling version to catch .lnk files in root folder
-            var shortcuts = FileBasedData.GetShortcutsInGroupWithRoot(groupName);
+            var shortcuts = JsonBasedData.GetShortcutsInGroupWithRoot(groupName);
             
             for (int i = 0; i < shortcuts.Count; i++)
             {
@@ -216,7 +216,7 @@ namespace ProgramManagerVC
                     
                     // Build tooltip with target and arguments, showing environment variables if present
                     string tooltip = shortcut.TargetPath;
-                    string expandedPath = FileBasedData.ExpandEnvironmentVariables(shortcut.TargetPath);
+                    string expandedPath = JsonBasedData.ExpandEnvironmentVariables(shortcut.TargetPath);
                     
                     // Show expanded path if it differs from original (contains environment variables)
                     if (shortcut.TargetPath != expandedPath)
@@ -226,7 +226,7 @@ namespace ProgramManagerVC
                     
                     if (!string.IsNullOrEmpty(shortcut.Arguments))
                     {
-                        string expandedArgs = FileBasedData.ExpandEnvironmentVariables(shortcut.Arguments);
+                        string expandedArgs = JsonBasedData.ExpandEnvironmentVariables(shortcut.Arguments);
                         if (shortcut.Arguments != expandedArgs)
                         {
                             tooltip += $"\nArguments: {shortcut.Arguments}\n? {expandedArgs}";
@@ -270,7 +270,7 @@ namespace ProgramManagerVC
             // Strategy 1: Try to load icon from the specified icon location
             if (!string.IsNullOrEmpty(shortcut.IconLocation))
             {
-                string expandedIconPath = FileBasedData.ExpandEnvironmentVariables(shortcut.IconLocation);
+                string expandedIconPath = JsonBasedData.ExpandEnvironmentVariables(shortcut.IconLocation);
                 if (File.Exists(expandedIconPath))
                 {
                     extractedIcon = TryExtractIconFromFile(expandedIconPath, shortcut.IconIndex);
@@ -281,7 +281,7 @@ namespace ProgramManagerVC
             // Strategy 2: Try to load icon from the target executable
             if (!string.IsNullOrEmpty(shortcut.TargetPath))
             {
-                string expandedTargetPath = FileBasedData.ExpandEnvironmentVariables(shortcut.TargetPath);
+                string expandedTargetPath = JsonBasedData.ExpandEnvironmentVariables(shortcut.TargetPath);
                 if (File.Exists(expandedTargetPath))
                 {
                     extractedIcon = TryExtractIconFromFile(expandedTargetPath, 0);
@@ -292,7 +292,7 @@ namespace ProgramManagerVC
             // Strategy 3: Try to get associated icon for the target file
             if (!string.IsNullOrEmpty(shortcut.TargetPath))
             {
-                string expandedTargetPath = FileBasedData.ExpandEnvironmentVariables(shortcut.TargetPath);
+                string expandedTargetPath = JsonBasedData.ExpandEnvironmentVariables(shortcut.TargetPath);
                 if (File.Exists(expandedTargetPath))
                 {
                     try
@@ -315,7 +315,7 @@ namespace ProgramManagerVC
             // Strategy 5: Use system warning icon for missing files
             if (!string.IsNullOrEmpty(shortcut.TargetPath))
             {
-                string expandedTargetPath = FileBasedData.ExpandEnvironmentVariables(shortcut.TargetPath);
+                string expandedTargetPath = JsonBasedData.ExpandEnvironmentVariables(shortcut.TargetPath);
                 if (!File.Exists(expandedTargetPath))
                 {
                     return SystemIcons.Warning;
@@ -333,7 +333,7 @@ namespace ProgramManagerVC
             try
             {
                 // Expand environment variables in the file path
-                string expandedPath = FileBasedData.ExpandEnvironmentVariables(filePath);
+                string expandedPath = JsonBasedData.ExpandEnvironmentVariables(filePath);
                 
                 if (!File.Exists(expandedPath)) return null;
 
@@ -367,7 +367,7 @@ namespace ProgramManagerVC
 
         private string GetGroupNameFromId(string id)
         {
-            var groups = FileBasedData.GetAllGroups();
+            var groups = JsonBasedData.GetAllGroups();
             var group = groups.FirstOrDefault(g => g.Id == id);
             return group?.Name ?? "";
         }
@@ -393,7 +393,7 @@ namespace ProgramManagerVC
         {
             if (this.Tag != null)
             {
-                var groups = FileBasedData.GetAllGroups();
+                var groups = JsonBasedData.GetAllGroups();
                 var group = groups.FirstOrDefault(g => g.Id == this.Tag.ToString());
                 
                 if (group != null)
@@ -417,7 +417,7 @@ namespace ProgramManagerVC
                     }
                     
                     // Save to .ini file in application folder
-                    FileBasedData.SaveGroupSettings(group);
+                    JsonBasedData.SaveGroupSettings(group);
                 }
             }
         }
@@ -455,7 +455,7 @@ namespace ProgramManagerVC
                 var shortcutInfo = (ShortcutInfo)listViewMain.SelectedItems[0].Tag;
                 
                 // Expand environment variables before checking file existence
-                string expandedTargetPath = FileBasedData.ExpandEnvironmentVariables(shortcutInfo.TargetPath);
+                string expandedTargetPath = JsonBasedData.ExpandEnvironmentVariables(shortcutInfo.TargetPath);
                 
                 // Check if file exists before trying to launch it
                 if (System.IO.File.Exists(expandedTargetPath))
@@ -464,9 +464,9 @@ namespace ProgramManagerVC
                     {
                         var psi = new ProcessStartInfo();
                         psi.FileName = expandedTargetPath;
-                        psi.Arguments = FileBasedData.ExpandEnvironmentVariables(shortcutInfo.Arguments ?? "");
+                        psi.Arguments = JsonBasedData.ExpandEnvironmentVariables(shortcutInfo.Arguments ?? "");
                         
-                        string expandedWorkingDir = FileBasedData.ExpandEnvironmentVariables(shortcutInfo.WorkingDirectory ?? "");
+                        string expandedWorkingDir = JsonBasedData.ExpandEnvironmentVariables(shortcutInfo.WorkingDirectory ?? "");
                         if (string.IsNullOrEmpty(expandedWorkingDir))
                             expandedWorkingDir = Path.GetDirectoryName(expandedTargetPath);
                         
@@ -502,7 +502,7 @@ namespace ProgramManagerVC
                 var shortcutInfo = (ShortcutInfo)listViewMain.SelectedItems[0].Tag;
                 
                 // Expand environment variables before checking file existence
-                string expandedTargetPath = FileBasedData.ExpandEnvironmentVariables(shortcutInfo.TargetPath);
+                string expandedTargetPath = JsonBasedData.ExpandEnvironmentVariables(shortcutInfo.TargetPath);
                 
                 // Check if file exists before trying to show it in explorer
                 if (System.IO.File.Exists(expandedTargetPath))
@@ -541,7 +541,7 @@ namespace ProgramManagerVC
                     var shortcutInfo = (ShortcutInfo)listViewMain.SelectedItems[0].Tag;
                     
                     // Expand environment variables before checking file existence
-                    string expandedTargetPath = FileBasedData.ExpandEnvironmentVariables(shortcutInfo.TargetPath);
+                    string expandedTargetPath = JsonBasedData.ExpandEnvironmentVariables(shortcutInfo.TargetPath);
                     
                     // Check if file exists before trying to run it
                     if (System.IO.File.Exists(expandedTargetPath))
@@ -550,7 +550,7 @@ namespace ProgramManagerVC
                         {
                             Process proc = new Process();
                             proc.StartInfo.FileName = expandedTargetPath;
-                            proc.StartInfo.Arguments = FileBasedData.ExpandEnvironmentVariables(shortcutInfo.Arguments ?? "");
+                            proc.StartInfo.Arguments = JsonBasedData.ExpandEnvironmentVariables(shortcutInfo.Arguments ?? "");
                             proc.StartInfo.UseShellExecute = true;
                             proc.StartInfo.Verb = "runas";
                             proc.Start();
@@ -601,12 +601,12 @@ namespace ProgramManagerVC
 
                         // Update icon ordering after deletion
                         var groupName = GetGroupNameFromId(this.Tag?.ToString() ?? "");
-                        var shortcuts = FileBasedData.GetShortcutsInGroupWithRoot(groupName);
+                        var shortcuts = JsonBasedData.GetShortcutsInGroupWithRoot(groupName);
                         for (int i = 0; i < shortcuts.Count; i++)
                         {
                             shortcuts[i].DisplayOrder = i;
                         }
-                        FileBasedData.SaveShortcutDisplayOrder(shortcuts, groupName);
+                        JsonBasedData.SaveShortcutDisplayOrder(shortcuts, groupName);
 
                         InitializeItems();
                     }
@@ -650,7 +650,7 @@ namespace ProgramManagerVC
             Form createForm = new FormCreateGroup(this.Tag?.ToString() ?? "");
             if (createForm.ShowDialog() == DialogResult.OK)
             {
-                var groups = FileBasedData.GetAllGroups();
+                var groups = JsonBasedData.GetAllGroups();
                 var group = groups.FirstOrDefault(g => g.Id == this.Tag?.ToString());
                 if (group != null)
                 {
@@ -667,7 +667,7 @@ namespace ProgramManagerVC
             // Special handling for Programs group
             if (groupName == "Programs")
             {
-                var profilePath = FileBasedData.GetGroupsFolder();
+                var profilePath = JsonBasedData.GetGroupsFolder();
                 string message = $"Are you sure you want to delete all shortcuts in:\n\n{profilePath}";
                 
                 if (MessageBox.Show(message, "Confirm Delete All Shortcuts",
@@ -703,7 +703,7 @@ namespace ProgramManagerVC
                 {
                     try
                     {
-                        FileBasedData.DeleteGroup(groupName);
+                        JsonBasedData.DeleteGroup(groupName);
                         this.Hide();
                         this.DestroyHandle();
                     }
@@ -897,7 +897,7 @@ namespace ProgramManagerVC
             try
             {
                 var groupName = GetGroupNameFromId(this.Tag?.ToString() ?? "");
-                var shortcuts = FileBasedData.GetShortcutsInGroupWithRoot(groupName);
+                var shortcuts = JsonBasedData.GetShortcutsInGroupWithRoot(groupName);
 
                 // Find the dragged shortcut
                 var draggedShortcut = (ShortcutInfo)draggedItem.Tag;
@@ -929,7 +929,7 @@ namespace ProgramManagerVC
                     }
 
                     // Save the new order
-                    FileBasedData.SaveShortcutDisplayOrder(shortcuts, groupName);
+                    JsonBasedData.SaveShortcutDisplayOrder(shortcuts, groupName);
 
                     // Refresh the display
                     InitializeItems();
@@ -965,13 +965,13 @@ namespace ProgramManagerVC
                                 if (extension == ".lnk")
                                 {
                                     // Copy .lnk file directly
-                                    var destPath = Path.Combine(FileBasedData.GetGroupsFolder(), groupName, fileName);
+                                    var destPath = Path.Combine(JsonBasedData.GetGroupsFolder(), groupName, fileName);
                                     if (groupName == "Programs")
                                     {
                                         // For Programs group, copy to root if no subfolder exists
-                                        var groupFolder = Path.Combine(FileBasedData.GetGroupsFolder(), groupName);
+                                        var groupFolder = Path.Combine(JsonBasedData.GetGroupsFolder(), groupName);
                                         if (!Directory.Exists(groupFolder))
-                                            destPath = Path.Combine(FileBasedData.GetGroupsFolder(), fileName);
+                                            destPath = Path.Combine(JsonBasedData.GetGroupsFolder(), fileName);
                                     }
 
                                     File.Copy(itemPath, destPath, true);
@@ -980,7 +980,7 @@ namespace ProgramManagerVC
                                 {
                                     // Create shortcut for the file
                                     string shortcutName = Path.GetFileNameWithoutExtension(fileName);
-                                    FileBasedData.CreateShortcut(groupName, shortcutName, itemPath, "", itemPath, 0);
+                                    JsonBasedData.CreateShortcut(groupName, shortcutName, itemPath, "", itemPath, 0);
                                 }
                             }
                             else if (Directory.Exists(itemPath))
@@ -992,12 +992,12 @@ namespace ProgramManagerVC
                                 foreach (var lnkFile in lnkFiles)
                                 {
                                     string lnkFileName = Path.GetFileName(lnkFile);
-                                    var destPath = Path.Combine(FileBasedData.GetGroupsFolder(), groupName, lnkFileName);
+                                    var destPath = Path.Combine(JsonBasedData.GetGroupsFolder(), groupName, lnkFileName);
                                     if (groupName == "Programs")
                                     {
-                                        var groupFolder = Path.Combine(FileBasedData.GetGroupsFolder(), groupName);
+                                        var groupFolder = Path.Combine(JsonBasedData.GetGroupsFolder(), groupName);
                                         if (!Directory.Exists(groupFolder))
-                                            destPath = Path.Combine(FileBasedData.GetGroupsFolder(), lnkFileName);
+                                            destPath = Path.Combine(JsonBasedData.GetGroupsFolder(), lnkFileName);
                                     }
 
                                     File.Copy(lnkFile, destPath, true);
@@ -1027,7 +1027,7 @@ namespace ProgramManagerVC
         private void LoadIconSizeFromINI()
         {
             // Load saved icon size from application settings
-            var iconSizeStr = FileBasedData.LoadApplicationSetting("icon_size", "32");
+            var iconSizeStr = JsonBasedData.LoadApplicationSetting("icon_size", "32");
             if (int.TryParse(iconSizeStr, out int savedSize))
             {
                 // Validate against allowed sizes: 16, 32, 48, 64
@@ -1053,7 +1053,7 @@ namespace ProgramManagerVC
 
         private void SaveIconSizeToINI()
         {
-            FileBasedData.SaveApplicationSettings("icon_size", currentIconSize.ToString());
+            JsonBasedData.SaveApplicationSettings("icon_size", currentIconSize.ToString());
         }
 
         private void FormChild_MouseWheel(object sender, MouseEventArgs e)
@@ -1154,7 +1154,7 @@ namespace ProgramManagerVC
             var groupName = GetGroupNameFromId(this.Tag?.ToString() ?? "");
             if (string.IsNullOrEmpty(groupName)) return;
 
-            var shortcuts = FileBasedData.GetShortcutsInGroupWithRoot(groupName);
+            var shortcuts = JsonBasedData.GetShortcutsInGroupWithRoot(groupName);
 
             // Clear and rebuild the image list with new size
             imageListIcons.Images.Clear();
@@ -1188,7 +1188,7 @@ namespace ProgramManagerVC
 
                     // Build tooltip with target and arguments, showing environment variables if present
                     string tooltip = shortcut.TargetPath;
-                    string expandedPath = FileBasedData.ExpandEnvironmentVariables(shortcut.TargetPath);
+                    string expandedPath = JsonBasedData.ExpandEnvironmentVariables(shortcut.TargetPath);
 
                     // Show expanded path if it differs from original (contains environment variables)
                     if (shortcut.TargetPath != expandedPath)
@@ -1198,7 +1198,7 @@ namespace ProgramManagerVC
 
                     if (!string.IsNullOrEmpty(shortcut.Arguments))
                     {
-                        string expandedArgs = FileBasedData.ExpandEnvironmentVariables(shortcut.Arguments);
+                        string expandedArgs = JsonBasedData.ExpandEnvironmentVariables(shortcut.Arguments);
                         if (shortcut.Arguments != expandedArgs)
                         {
                             tooltip += $"\nArguments: {shortcut.Arguments}\n→ {expandedArgs}";

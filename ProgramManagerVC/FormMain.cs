@@ -135,12 +135,12 @@ namespace ProgramManagerVC
             var activeChild = this.ActiveMdiChild as FormChild;
             if (activeChild != null && activeChild.Tag != null)
             {
-                FileBasedData.SaveApplicationSettings("active_window", activeChild.Tag.ToString());
+                JsonBasedData.SaveApplicationSettings("active_window", activeChild.Tag.ToString());
             }
             else
             {
                 // Clear the active window setting if no windows are open
-                FileBasedData.SaveApplicationSettings("active_window", "");
+                JsonBasedData.SaveApplicationSettings("active_window", "");
             }
         }
 
@@ -149,8 +149,8 @@ namespace ProgramManagerVC
             try
             {
                 // Load the current profile or default to Main
-                var currentProfile = FileBasedData.GetCurrentProfile();
-                var profiles = FileBasedData.GetAllProfiles();
+                var currentProfile = JsonBasedData.GetCurrentProfile();
+                var profiles = JsonBasedData.GetAllProfiles();
                 
                 // Ensure we have at least the Main profile
                 if (profiles == null || profiles.Count == 0)
@@ -161,11 +161,11 @@ namespace ProgramManagerVC
                         Directory.CreateDirectory(defaultShortcutsPath);
 
                     // Create Default profile
-                    FileBasedData.SaveProfile("Default", defaultShortcutsPath);
-                    FileBasedData.SetCurrentProfile("Default");
+                    JsonBasedData.SaveProfile("Default", defaultShortcutsPath);
+                    JsonBasedData.SetCurrentProfile("Default");
                     
                     // Reload profiles
-                    profiles = FileBasedData.GetAllProfiles();
+                    profiles = JsonBasedData.GetAllProfiles();
                     currentProfile = "Default";
                 }
                 
@@ -182,17 +182,17 @@ namespace ProgramManagerVC
                         return;
                     }
                     // Update current profile to the fallback
-                    FileBasedData.SetCurrentProfile(activeProfile.Name);
+                    JsonBasedData.SetCurrentProfile(activeProfile.Name);
                 }
                 
                 // Set the groups folder based on active profile
-                FileBasedData.SetGroupsFolder(activeProfile.Path);
+                JsonBasedData.SetGroupsFolder(activeProfile.Path);
 
                 // Load all groups from folder structure
-                var groups = FileBasedData.GetAllGroups();
+                var groups = JsonBasedData.GetAllGroups();
                 
                 // Get last active window
-                string lastActiveWindowId = FileBasedData.LoadApplicationSetting("active_window", "");
+                string lastActiveWindowId = JsonBasedData.LoadApplicationSetting("active_window", "");
                 FormChild windowToActivate = null;
                 bool isFirstTimeDisplayingProfile = string.IsNullOrEmpty(lastActiveWindowId);
                 
@@ -334,7 +334,7 @@ namespace ProgramManagerVC
             if (childForm.Tag != null)
             {
                 // Find the corresponding group
-                var groups = FileBasedData.GetAllGroups();
+                var groups = JsonBasedData.GetAllGroups();
                 var group = groups.FirstOrDefault(g => g.Id == childForm.Tag.ToString());
                 
                 if (group != null)
@@ -358,7 +358,7 @@ namespace ProgramManagerVC
                     }
                     
                     // Save to INI file
-                    FileBasedData.SaveGroupSettings(group);
+                    JsonBasedData.SaveGroupSettings(group);
                 }
             }
         }
@@ -395,7 +395,7 @@ namespace ProgramManagerVC
                         // Delete the .lnk file
                         var groupName = GetGroupNameFromId(activeChild.Tag.ToString());
                         var shortcutFileName = selectedItem.Text + ".lnk";
-                        FileBasedData.DeleteShortcut(groupName, shortcutFileName);
+                        JsonBasedData.DeleteShortcut(groupName, shortcutFileName);
                         activeChild.InitializeItems();
                         // Refresh all other windows in case they're showing the same folder
                         RefreshAllChildWindows();
@@ -409,7 +409,7 @@ namespace ProgramManagerVC
                                    MessageBoxIcon.Question) == DialogResult.Yes)
                     {
                         var groupName = GetGroupNameFromId(activeChild.Tag.ToString());
-                        FileBasedData.DeleteGroup(groupName);
+                        JsonBasedData.DeleteGroup(groupName);
                         activeChild.Hide();
                     }
                 }
@@ -418,7 +418,7 @@ namespace ProgramManagerVC
 
         private string GetGroupNameFromId(string id)
         {
-            var groups = FileBasedData.GetAllGroups();
+            var groups = JsonBasedData.GetAllGroups();
             var group = groups.FirstOrDefault(g => g.Id == id);
             return group?.Name ?? "";
         }
@@ -627,10 +627,10 @@ namespace ProgramManagerVC
 
         private void LoadWindowSizeAndPosition()
         {
-            var widthStr = FileBasedData.LoadApplicationSetting("window_width");
-            var heightStr = FileBasedData.LoadApplicationSetting("window_height");
-            var xStr = FileBasedData.LoadApplicationSetting("window_x");
-            var yStr = FileBasedData.LoadApplicationSetting("window_y");
+            var widthStr = JsonBasedData.LoadApplicationSetting("window_width");
+            var heightStr = JsonBasedData.LoadApplicationSetting("window_height");
+            var xStr = JsonBasedData.LoadApplicationSetting("window_x");
+            var yStr = JsonBasedData.LoadApplicationSetting("window_y");
             
             if (int.TryParse(widthStr, out int width) && int.TryParse(heightStr, out int height) && width > 0 && height > 0)
             {
@@ -671,10 +671,10 @@ namespace ProgramManagerVC
         {
             if (this.WindowState == FormWindowState.Normal)
             {
-                FileBasedData.SaveApplicationSettings("window_width", this.Width.ToString());
-                FileBasedData.SaveApplicationSettings("window_height", this.Height.ToString());
-                FileBasedData.SaveApplicationSettings("window_x", this.Location.X.ToString());
-                FileBasedData.SaveApplicationSettings("window_y", this.Location.Y.ToString());
+                JsonBasedData.SaveApplicationSettings("window_width", this.Width.ToString());
+                JsonBasedData.SaveApplicationSettings("window_height", this.Height.ToString());
+                JsonBasedData.SaveApplicationSettings("window_x", this.Location.X.ToString());
+                JsonBasedData.SaveApplicationSettings("window_y", this.Location.Y.ToString());
             }
         }
 
@@ -846,8 +846,8 @@ namespace ProgramManagerVC
             }
             
             // Add custom profiles
-            var profiles = FileBasedData.GetAllProfiles();
-            var currentProfile = FileBasedData.GetCurrentProfile();
+            var profiles = JsonBasedData.GetAllProfiles();
+            var currentProfile = JsonBasedData.GetCurrentProfile();
             
             // Mark current profile (Local Folder represents Main profile)
             mainProfileToolStripMenuItem.Checked = (currentProfile == "Default");
@@ -903,7 +903,7 @@ namespace ProgramManagerVC
                 }
                 
                 // Check if profile name already exists
-                var existingProfiles = FileBasedData.GetAllProfiles();
+                var existingProfiles = JsonBasedData.GetAllProfiles();
                 if (existingProfiles.Any(p => p.Name.Equals(profileName, StringComparison.OrdinalIgnoreCase)))
                 {
                     MessageBox.Show($"A profile named '{profileName}' already exists.\n\nPlease select a different folder or rename the selected folder.", 
@@ -914,7 +914,7 @@ namespace ProgramManagerVC
                 try
                 {
                     // Save the profile using the folder name
-                    FileBasedData.SaveProfile(profileName, selectedPath);
+                    JsonBasedData.SaveProfile(profileName, selectedPath);
                     
                     // Switch to the new profile
                     LoadProfile(profileName);
@@ -932,7 +932,7 @@ namespace ProgramManagerVC
 
         private void deleteProfileToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            var currentProfile = FileBasedData.GetCurrentProfile();
+            var currentProfile = JsonBasedData.GetCurrentProfile();
             
             if (currentProfile == "Default")
             {
@@ -946,7 +946,7 @@ namespace ProgramManagerVC
             {
                 try
                 {
-                    FileBasedData.DeleteProfile(currentProfile);
+                    JsonBasedData.DeleteProfile(currentProfile);
                     
                     // Switch back to Main profile
                     LoadProfile("Default");
@@ -967,7 +967,7 @@ namespace ProgramManagerVC
             try
             {
                 // Set current profile
-                FileBasedData.SetCurrentProfile(profileName);
+                JsonBasedData.SetCurrentProfile(profileName);
                 
                 // Close all existing windows
                 CloseAllMDIWindows();
