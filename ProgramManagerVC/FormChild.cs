@@ -71,6 +71,11 @@ namespace ProgramManagerVC
             listViewMain.DragDrop += ListViewMain_DragDrop;
             listViewMain.DragOver += ListViewMain_DragOver;
 
+            // Also enable drag & drop for the form itself (to catch drops anywhere)
+            this.AllowDrop = true;
+            this.DragEnter += FormChild_DragEnter;
+            this.DragDrop += FormChild_DragDrop;
+
             // Enable mouse wheel for icon sizing
             this.MouseWheel += FormChild_MouseWheel;
             listViewMain.MouseWheel += FormChild_MouseWheel;
@@ -216,24 +221,41 @@ namespace ProgramManagerVC
                     
                     // Build tooltip with target and arguments, showing environment variables if present
                     string tooltip = shortcut.TargetPath;
-                    string expandedPath = JsonBasedData.ExpandEnvironmentVariables(shortcut.TargetPath);
-                    
-                    // Show expanded path if it differs from original (contains environment variables)
-                    if (shortcut.TargetPath != expandedPath)
+
+                    // Check if target contains environment variables and show both versions
+                    if (JsonBasedData.ContainsEnvironmentVariables(shortcut.TargetPath))
                     {
-                        tooltip = $"{shortcut.TargetPath}\n? {expandedPath}";
+                        string expandedPath = JsonBasedData.ExpandEnvironmentVariablesEnhanced(shortcut.TargetPath);
+                        tooltip = $"{shortcut.TargetPath}\n→ {expandedPath}";
                     }
-                    
+                    else
+                    {
+                        // Try the old method as fallback
+                        string expandedPath = JsonBasedData.ExpandEnvironmentVariables(shortcut.TargetPath);
+                        if (shortcut.TargetPath != expandedPath)
+                        {
+                            tooltip = $"{shortcut.TargetPath}\n→ {expandedPath}";
+                        }
+                    }
+
                     if (!string.IsNullOrEmpty(shortcut.Arguments))
                     {
-                        string expandedArgs = JsonBasedData.ExpandEnvironmentVariables(shortcut.Arguments);
-                        if (shortcut.Arguments != expandedArgs)
+                        if (JsonBasedData.ContainsEnvironmentVariables(shortcut.Arguments))
                         {
-                            tooltip += $"\nArguments: {shortcut.Arguments}\n? {expandedArgs}";
+                            string expandedArgs = JsonBasedData.ExpandEnvironmentVariablesEnhanced(shortcut.Arguments);
+                            tooltip += $"\nArguments: {shortcut.Arguments}\n→ {expandedArgs}";
                         }
                         else
                         {
-                            tooltip += $"\nArguments: {shortcut.Arguments}";
+                            string expandedArgs = JsonBasedData.ExpandEnvironmentVariables(shortcut.Arguments);
+                            if (shortcut.Arguments != expandedArgs)
+                            {
+                                tooltip += $"\nArguments: {shortcut.Arguments}\n→ {expandedArgs}";
+                            }
+                            else
+                            {
+                                tooltip += $"\nArguments: {shortcut.Arguments}";
+                            }
                         }
                     }
                     
@@ -824,8 +846,8 @@ namespace ProgramManagerVC
             }
             else if (e.Data.GetDataPresent(DataFormats.FileDrop))
             {
-                // Handle external file drop (existing functionality)
-                HandleFileDrop(e);
+                // Handle external file drop (from Explorer, etc.)
+                HandleExternalFileDrop(e);
             }
         }
 
@@ -1188,24 +1210,41 @@ namespace ProgramManagerVC
 
                     // Build tooltip with target and arguments, showing environment variables if present
                     string tooltip = shortcut.TargetPath;
-                    string expandedPath = JsonBasedData.ExpandEnvironmentVariables(shortcut.TargetPath);
 
-                    // Show expanded path if it differs from original (contains environment variables)
-                    if (shortcut.TargetPath != expandedPath)
+                    // Check if target contains environment variables and show both versions
+                    if (JsonBasedData.ContainsEnvironmentVariables(shortcut.TargetPath))
                     {
+                        string expandedPath = JsonBasedData.ExpandEnvironmentVariablesEnhanced(shortcut.TargetPath);
                         tooltip = $"{shortcut.TargetPath}\n→ {expandedPath}";
+                    }
+                    else
+                    {
+                        // Try the old method as fallback
+                        string expandedPath = JsonBasedData.ExpandEnvironmentVariables(shortcut.TargetPath);
+                        if (shortcut.TargetPath != expandedPath)
+                        {
+                            tooltip = $"{shortcut.TargetPath}\n→ {expandedPath}";
+                        }
                     }
 
                     if (!string.IsNullOrEmpty(shortcut.Arguments))
                     {
-                        string expandedArgs = JsonBasedData.ExpandEnvironmentVariables(shortcut.Arguments);
-                        if (shortcut.Arguments != expandedArgs)
+                        if (JsonBasedData.ContainsEnvironmentVariables(shortcut.Arguments))
                         {
+                            string expandedArgs = JsonBasedData.ExpandEnvironmentVariablesEnhanced(shortcut.Arguments);
                             tooltip += $"\nArguments: {shortcut.Arguments}\n→ {expandedArgs}";
                         }
                         else
                         {
-                            tooltip += $"\nArguments: {shortcut.Arguments}";
+                            string expandedArgs = JsonBasedData.ExpandEnvironmentVariables(shortcut.Arguments);
+                            if (shortcut.Arguments != expandedArgs)
+                            {
+                                tooltip += $"\nArguments: {shortcut.Arguments}\n→ {expandedArgs}";
+                            }
+                            else
+                            {
+                                tooltip += $"\nArguments: {shortcut.Arguments}";
+                            }
                         }
                     }
 
@@ -1228,6 +1267,154 @@ namespace ProgramManagerVC
                     listViewMain.Items.Add(item);
                 }
             }
+        }
+
+        #endregion
+
+        #region Form-Level Drag & Drop (for when dropping outside ListView)
+
+        private void FormChild_DragEnter(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                e.Effect = DragDropEffects.Copy;
+            }
+            else
+            {
+                e.Effect = DragDropEffects.None;
+            }
+        }
+
+        private void FormChild_DragDrop(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                HandleExternalFileDrop(e);
+            }
+        }
+
+        #endregion
+
+        #region External Drag & Drop Support
+
+        /// <summary>
+        /// Handle files dropped from external applications (Explorer, etc.)
+        /// </summary>
+        private void HandleExternalFileDrop(DragEventArgs e)
+        {
+            try
+            {
+                string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                var groupName = GetGroupNameFromId(this.Tag?.ToString() ?? "");
+                var targetFolder = JsonBasedData.GetGroupsFolder();
+
+                if (groupName != "Programs")
+                {
+                    targetFolder = Path.Combine(targetFolder, groupName);
+                }
+
+                foreach (string file in files)
+                {
+                    if (File.Exists(file))
+                    {
+                        string fileName = Path.GetFileName(file);
+                        string fileExt = Path.GetExtension(file).ToLower();
+
+                        if (fileExt == ".lnk")
+                        {
+                            // It's already a shortcut - copy it directly
+                            string targetPath = Path.Combine(targetFolder, fileName);
+
+                            // Make sure we don't overwrite existing shortcuts
+                            targetPath = GetUniqueFileName(targetPath);
+
+                            File.Copy(file, targetPath);
+                        }
+                        else if (fileExt == ".exe" || fileExt == ".bat" || fileExt == ".cmd" || 
+                                fileExt == ".com" || fileExt == ".msi")
+                        {
+                            // Create a shortcut for executable files
+                            string shortcutName = Path.GetFileNameWithoutExtension(file);
+                            CreateShortcutFromFile(file, shortcutName, targetFolder);
+                        }
+                        else
+                        {
+                            // For other file types, create a shortcut that will open with default program
+                            string shortcutName = Path.GetFileNameWithoutExtension(file);
+                            CreateShortcutFromFile(file, shortcutName, targetFolder);
+                        }
+                    }
+                    else if (Directory.Exists(file))
+                    {
+                        // Create a shortcut to the folder
+                        string folderName = Path.GetFileName(file);
+                        CreateShortcutFromFile(file, folderName, targetFolder);
+                    }
+                }
+
+                // Refresh the view to show new shortcuts
+                InitializeItems();
+
+                // Notify other windows to refresh as well
+                var mainForm = this.MdiParent as FormMain;
+                mainForm?.RefreshAllChildWindows();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error adding shortcut: {ex.Message}", 
+                    "Drop Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        /// <summary>
+        /// Create a shortcut from a dropped file
+        /// </summary>
+        private void CreateShortcutFromFile(string sourceFile, string shortcutName, string targetFolder)
+        {
+            try
+            {
+                // Ensure target folder exists
+                if (!Directory.Exists(targetFolder))
+                {
+                    Directory.CreateDirectory(targetFolder);
+                }
+
+                string shortcutPath = Path.Combine(targetFolder, shortcutName + ".lnk");
+                shortcutPath = GetUniqueFileName(shortcutPath);
+
+                // Use the same method as FormCreateItem to create shortcuts
+                var groupName = GetGroupNameFromId(this.Tag?.ToString() ?? "");
+                JsonBasedData.CreateShortcut(groupName, shortcutName, sourceFile, "", "", 0);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error creating shortcut for {sourceFile}: {ex.Message}", 
+                    "Shortcut Creation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        /// <summary>
+        /// Get a unique filename by appending a number if needed
+        /// </summary>
+        private string GetUniqueFileName(string filePath)
+        {
+            if (!File.Exists(filePath))
+                return filePath;
+
+            string directory = Path.GetDirectoryName(filePath);
+            string fileName = Path.GetFileNameWithoutExtension(filePath);
+            string extension = Path.GetExtension(filePath);
+
+            int counter = 1;
+            string newPath;
+
+            do
+            {
+                newPath = Path.Combine(directory, $"{fileName} ({counter}){extension}");
+                counter++;
+            } while (File.Exists(newPath));
+
+            return newPath;
         }
 
         #endregion

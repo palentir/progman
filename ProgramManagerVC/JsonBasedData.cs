@@ -511,6 +511,41 @@ namespace ProgramManagerVC
             return FileBasedData.ExpandEnvironmentVariables(input);
         }
 
+        /// <summary>
+        /// Enhanced environment variable expansion with better handling
+        /// </summary>
+        public static string ExpandEnvironmentVariablesEnhanced(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+                return input;
+
+            // Use regex to find all %VARIABLE% patterns
+            var regex = new System.Text.RegularExpressions.Regex(@"%([^%]+)%", 
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+            return regex.Replace(input, match =>
+            {
+                string varName = match.Groups[1].Value;
+                string expandedValue = Environment.GetEnvironmentVariable(varName);
+
+                // If the environment variable exists, return its value
+                // Otherwise, keep the original %VARIABLE% format
+                return expandedValue ?? match.Value;
+            });
+        }
+
+        /// <summary>
+        /// Check if a string contains environment variables
+        /// </summary>
+        public static bool ContainsEnvironmentVariables(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+                return false;
+
+            return input.Contains("%") && 
+                   System.Text.RegularExpressions.Regex.IsMatch(input, @"%[^%]+%");
+        }
+
         private static string GetGroupFolderPath(string groupName)
         {
             var profilePath = GetGroupsFolder();
