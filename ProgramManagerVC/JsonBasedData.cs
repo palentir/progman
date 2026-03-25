@@ -49,10 +49,8 @@ namespace ProgramManagerVC
                 case "active_window":
                     Config.Application.ActiveWindow = value ?? "";
                     break;
-                case "current_profile":
-                    Config.Application.CurrentProfile = value ?? "Default";
-                    break;
             }
+            
             JsonConfig.Save();
         }
 
@@ -76,9 +74,7 @@ namespace ProgramManagerVC
                 case "username_in_title":
                     return Config.Application.UsernameInTitle.ToString();
                 case "active_window":
-                    return Config.Application.ActiveWindow ?? defaultValue;
-                case "current_profile":
-                    return Config.Application.CurrentProfile ?? defaultValue;
+                    return Config.Application.ActiveWindow ?? "";
                 default:
                     return defaultValue;
             }
@@ -94,7 +90,7 @@ namespace ProgramManagerVC
         public static List<ProfileInfo> GetAllProfiles()
         {
             var profiles = new List<ProfileInfo>();
-
+            
             foreach (var profile in Config.Profiles)
             {
                 profiles.Add(new ProfileInfo
@@ -170,8 +166,11 @@ namespace ProgramManagerVC
             var groups = new List<GroupInfo>();
             var profilePath = GetGroupsFolder();
 
+            System.Diagnostics.Debug.WriteLine($"GetAllGroups: Profile={currentProfile}, Path={profilePath}");
+
             if (!Directory.Exists(profilePath))
             {
+                System.Diagnostics.Debug.WriteLine($"Profile path does not exist, creating: {profilePath}");
                 Directory.CreateDirectory(profilePath);
                 return groups;
             }
@@ -188,16 +187,23 @@ namespace ProgramManagerVC
             // Load settings for Programs group from JSON
             LoadGroupSettings(programsGroup, currentProfile);
             groups.Add(programsGroup);
+            System.Diagnostics.Debug.WriteLine($"Added Programs group");
 
             // Scan for subdirectories to create additional groups
             var subDirectories = Directory.GetDirectories(profilePath);
+            System.Diagnostics.Debug.WriteLine($"Found {subDirectories.Length} subdirectories in {profilePath}");
+
             foreach (var subDir in subDirectories)
             {
                 var groupName = Path.GetFileName(subDir);
-                
+                System.Diagnostics.Debug.WriteLine($"  Processing subdirectory: {groupName}");
+
                 // Skip hidden directories and system directories
                 if (groupName.StartsWith(".") || groupName.StartsWith("$"))
+                {
+                    System.Diagnostics.Debug.WriteLine($"  Skipping hidden/system directory: {groupName}");
                     continue;
+                }
 
                 var groupInfo = new GroupInfo
                 {
@@ -210,69 +216,78 @@ namespace ProgramManagerVC
                 // Load settings for this group from JSON
                 LoadGroupSettings(groupInfo, currentProfile);
                 groups.Add(groupInfo);
+                System.Diagnostics.Debug.WriteLine($"  Added group: {groupName}");
             }
 
+            System.Diagnostics.Debug.WriteLine($"GetAllGroups returning {groups.Count} groups total");
             return groups;
         }
 
         /// <summary>
-        /// Load group settings from JSON config
+        /// Load group settings from JSON
         /// </summary>
         private static void LoadGroupSettings(GroupInfo groupInfo, string profileName)
         {
-            if (Config.Groups.ContainsKey(profileName) &&
-                Config.Groups[profileName].ContainsKey(groupInfo.Id))
+            if (!Config.Groups.ContainsKey(profileName))
             {
-                var settings = Config.Groups[profileName][groupInfo.Id];
+                Config.Groups[profileName] = new Dictionary<string, GroupSettings>();
+            }
+
+            System.Diagnostics.Debug.WriteLine($"LoadGroupSettings: Group='{groupInfo.Name}', Profile='{profileName}'");
+
+            if (Config.Groups[profileName].ContainsKey(groupInfo.Name))
+            {
+                var settings = Config.Groups[profileName][groupInfo.Name];
                 groupInfo.WindowStatus = settings.WindowStatus;
                 groupInfo.X = settings.X;
                 groupInfo.Y = settings.Y;
                 groupInfo.Width = settings.Width;
                 groupInfo.Height = settings.Height;
+
+                System.Diagnostics.Debug.WriteLine($"  Loaded from JSON: Status={settings.WindowStatus}, X={settings.X}, Y={settings.Y}, W={settings.Width}, H={settings.Height}");
             }
             else
             {
-                // Set defaults for new groups
+                // Default values
                 groupInfo.WindowStatus = 1; // Normal
                 groupInfo.X = 100;
                 groupInfo.Y = 100;
                 groupInfo.Width = 400;
                 groupInfo.Height = 300;
 
-                // If this is the Programs group, give it a different default position
-                if (groupInfo.Id == "Programs")
-                {
-                    groupInfo.X = 1;
-                    groupInfo.Y = 379;
-                    groupInfo.Width = 315;
-                    groupInfo.Height = 124;
-                }
+                System.Diagnostics.Debug.WriteLine($"  Using defaults: Status=1, X=100, Y=100, W=400, H=300");
             }
         }
 
         /// <summary>
-        /// Save group settings
+        /// Save group settings to JSON
         /// </summary>
         public static void SaveGroupSettings(GroupInfo groupInfo)
         {
             var currentProfile = GetCurrentProfile();
-            
+
+            System.Diagnostics.Debug.WriteLine($"SaveGroupSettings: Group='{groupInfo.Name}', Profile='{currentProfile}'");
+            System.Diagnostics.Debug.WriteLine($"  Values: Status={groupInfo.WindowStatus}, X={groupInfo.X}, Y={groupInfo.Y}, W={groupInfo.Width}, H={groupInfo.Height}");
+
             if (!Config.Groups.ContainsKey(currentProfile))
             {
                 Config.Groups[currentProfile] = new Dictionary<string, GroupSettings>();
             }
 
-            Config.Groups[currentProfile][groupInfo.Id] = new GroupSettings
+            Config.Groups[currentProfile][groupInfo.Name] = new GroupSettings
             {
                 WindowStatus = groupInfo.WindowStatus,
                 X = groupInfo.X,
                 Y = groupInfo.Y,
                 Width = groupInfo.Width,
                 Height = groupInfo.Height,
-                ShortcutOrder = new List<string>() // Will be populated by shortcut order management
+                ShortcutOrder = Config.Groups[currentProfile].ContainsKey(groupInfo.Name) ?
+                    Config.Groups[currentProfile][groupInfo.Name].ShortcutOrder :
+                    new List<string>()
             };
-            
+
             JsonConfig.Save();
+            System.Diagnostics.Debug.WriteLine($"  Saved to JSON successfully");
         }
 
         /// <summary>
@@ -280,15 +295,17 @@ namespace ProgramManagerVC
         /// </summary>
         public static void DeleteGroup(string groupName)
         {
+            if (groupName == "Programs") return; // Cannot delete Programs group
+
+            // Remove from JSON
             var currentProfile = GetCurrentProfile();
-            
             if (Config.Groups.ContainsKey(currentProfile))
             {
                 Config.Groups[currentProfile].Remove(groupName);
                 JsonConfig.Save();
             }
 
-            // Also delete the physical folder
+            // Remove the folder
             var groupPath = GetGroupFolderPath(groupName);
             if (Directory.Exists(groupPath))
             {
@@ -341,6 +358,20 @@ namespace ProgramManagerVC
                 };
                 
                 JsonConfig.Save();
+            }
+        }
+
+        private static string GetGroupFolderPath(string groupName)
+        {
+            var profilePath = GetGroupsFolder();
+            
+            if (groupName == "Programs")
+            {
+                return profilePath; // Programs group uses the root folder
+            }
+            else
+            {
+                return Path.Combine(profilePath, groupName);
             }
         }
 
@@ -398,101 +429,46 @@ namespace ProgramManagerVC
 
         public static string GetGroupsFolder()
         {
-            if (string.IsNullOrEmpty(currentGroupsFolder))
+            if (!string.IsNullOrEmpty(currentGroupsFolder))
             {
-                var currentProfile = GetCurrentProfile();
-                if (Config.Profiles.ContainsKey(currentProfile))
-                {
-                    currentGroupsFolder = Config.Profiles[currentProfile].Path;
-                }
-                else
-                {
-                    currentGroupsFolder = Path.Combine(Application.StartupPath, "Shortcuts");
-                }
+                System.Diagnostics.Debug.WriteLine($"Using currentGroupsFolder: {currentGroupsFolder}");
+                return currentGroupsFolder;
             }
-            return currentGroupsFolder;
+
+            var currentProfile = GetCurrentProfile();
+            System.Diagnostics.Debug.WriteLine($"Current profile: {currentProfile}");
+
+            if (Config.Profiles.ContainsKey(currentProfile))
+            {
+                var profilePath = Config.Profiles[currentProfile].Path;
+                System.Diagnostics.Debug.WriteLine($"Profile path from config: {profilePath}");
+
+                // MIGRATION FIX: If the path ends with "Groups", change it to "Shortcuts"
+                if (profilePath.EndsWith("Groups"))
+                {
+                    profilePath = profilePath.Replace("Groups", "Shortcuts");
+                    System.Diagnostics.Debug.WriteLine($"Migrated path from Groups to Shortcuts: {profilePath}");
+
+                    // Update the profile with the correct path
+                    Config.Profiles[currentProfile].Path = profilePath;
+                    JsonConfig.Save();
+                    System.Diagnostics.Debug.WriteLine($"Updated profile path in JSON config");
+                }
+
+                return profilePath;
+            }
+
+            var defaultPath = Path.Combine(Application.StartupPath, "Shortcuts");
+            System.Diagnostics.Debug.WriteLine($"Using default path: {defaultPath}");
+            return defaultPath;
         }
 
         /// <summary>
-        /// Get shortcuts in a group with proper ordering
+        /// Get shortcuts in a group with root handling for Programs group
         /// </summary>
         public static List<ShortcutInfo> GetShortcutsInGroupWithRoot(string groupName)
         {
-            var shortcuts = new List<ShortcutInfo>();
-            var folderPath = GetGroupFolderPath(groupName);
-            
-            if (!Directory.Exists(folderPath))
-                return shortcuts;
-
-            // Get all .lnk files in the folder
-            var lnkFiles = Directory.GetFiles(folderPath, "*.lnk");
-            
-            // Convert to ShortcutInfo objects
-            foreach (var lnkFile in lnkFiles)
-            {
-                try
-                {
-                    var shortcutInfo = new ShortcutInfo();
-                    shortcutInfo.Name = Path.GetFileNameWithoutExtension(lnkFile);
-                    shortcutInfo.ShortcutPath = lnkFile;
-                    
-                    // Load shortcut details using the existing method
-                    var existingShortcut = FileBasedData.GetShortcutsInGroupWithRoot(groupName)
-                        .FirstOrDefault(s => s.Name == shortcutInfo.Name);
-                    
-                    if (existingShortcut != null)
-                    {
-                        shortcutInfo.TargetPath = existingShortcut.TargetPath;
-                        shortcutInfo.Arguments = existingShortcut.Arguments;
-                        shortcutInfo.IconLocation = existingShortcut.IconLocation;
-                        shortcutInfo.IconIndex = existingShortcut.IconIndex;
-                        shortcutInfo.DisplayOrder = existingShortcut.DisplayOrder;
-                    }
-                    
-                    shortcuts.Add(shortcutInfo);
-                }
-                catch
-                {
-                    // Skip invalid shortcut files
-                    continue;
-                }
-            }
-
-            // Apply saved ordering
-            var savedOrder = GetShortcutDisplayOrder(groupName);
-            if (savedOrder.Count > 0)
-            {
-                var orderedShortcuts = new List<ShortcutInfo>();
-                
-                // Add shortcuts in saved order
-                foreach (var shortcutName in savedOrder)
-                {
-                    var shortcut = shortcuts.FirstOrDefault(s => s.Name == shortcutName);
-                    if (shortcut != null)
-                    {
-                        shortcut.DisplayOrder = orderedShortcuts.Count;
-                        orderedShortcuts.Add(shortcut);
-                    }
-                }
-                
-                // Add any new shortcuts not in the saved order
-                foreach (var shortcut in shortcuts.Where(s => !savedOrder.Contains(s.Name)))
-                {
-                    shortcut.DisplayOrder = orderedShortcuts.Count;
-                    orderedShortcuts.Add(shortcut);
-                }
-                
-                return orderedShortcuts;
-            }
-            
-            // No saved order, return in alphabetical order
-            shortcuts = shortcuts.OrderBy(s => s.Name).ToList();
-            for (int i = 0; i < shortcuts.Count; i++)
-            {
-                shortcuts[i].DisplayOrder = i;
-            }
-            
-            return shortcuts;
+            return FileBasedData.GetShortcutsInGroupWithRoot(groupName);
         }
 
         // Forward to existing FileBasedData methods for now (shortcuts creation/deletion)
@@ -506,58 +482,43 @@ namespace ProgramManagerVC
             FileBasedData.DeleteShortcut(groupName, shortcutFileName);
         }
 
-        public static string ExpandEnvironmentVariables(string input)
+        public static List<ShortcutInfo> GetShortcutsInGroup(string groupName)
         {
-            return FileBasedData.ExpandEnvironmentVariables(input);
+            return FileBasedData.GetShortcutsInGroup(groupName);
         }
 
         /// <summary>
-        /// Enhanced environment variable expansion with better handling
+        /// Expand environment variables in a path
         /// </summary>
-        public static string ExpandEnvironmentVariablesEnhanced(string input)
+        public static string ExpandEnvironmentVariables(string path)
         {
-            if (string.IsNullOrEmpty(input))
-                return input;
-
-            // Use regex to find all %VARIABLE% patterns
-            var regex = new System.Text.RegularExpressions.Regex(@"%([^%]+)%", 
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-            return regex.Replace(input, match =>
-            {
-                string varName = match.Groups[1].Value;
-                string expandedValue = Environment.GetEnvironmentVariable(varName);
-
-                // If the environment variable exists, return its value
-                // Otherwise, keep the original %VARIABLE% format
-                return expandedValue ?? match.Value;
-            });
+            return Environment.ExpandEnvironmentVariables(path);
         }
 
         /// <summary>
         /// Check if a string contains environment variables
         /// </summary>
-        public static bool ContainsEnvironmentVariables(string input)
+        public static bool ContainsEnvironmentVariables(string text)
         {
-            if (string.IsNullOrEmpty(input))
-                return false;
-
-            return input.Contains("%") && 
-                   System.Text.RegularExpressions.Regex.IsMatch(input, @"%[^%]+%");
+            if (string.IsNullOrEmpty(text)) return false;
+            return text.Contains("%");
         }
 
-        private static string GetGroupFolderPath(string groupName)
+        /// <summary>
+        /// Enhanced environment variable expansion
+        /// </summary>
+        public static string ExpandEnvironmentVariablesEnhanced(string path)
         {
-            var profilePath = GetGroupsFolder();
-            
-            if (groupName == "Programs")
-            {
-                return profilePath; // Programs group uses the root folder
-            }
-            else
-            {
-                return Path.Combine(profilePath, groupName);
-            }
+            if (string.IsNullOrEmpty(path)) return path;
+
+            // First do standard expansion
+            string result = Environment.ExpandEnvironmentVariables(path);
+
+            // Handle additional common variables
+            result = result.Replace("%USERNAME%", Environment.UserName);
+            result = result.Replace("%COMPUTERNAME%", Environment.MachineName);
+
+            return result;
         }
 
         #endregion

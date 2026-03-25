@@ -133,6 +133,7 @@
       <DesignTime>True</DesignTime>
     </Compile>
     <None Include="app.config" />
+    <None Include="app.manifest" />
     <None Include="bin\Debug\Groups\Main\Group.ini" />
     <None Include="bin\Debug\Main.ini.example" />
     <None Include="bin\Debug\README_FileBased.md" />

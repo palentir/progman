@@ -25,15 +25,27 @@ namespace ProgramManagerVC
             {
                 if (_config == null)
                 {
+                    System.Diagnostics.Debug.WriteLine($"JsonConfig.Load: ConfigFilePath = {ConfigFilePath}");
+
                     if (File.Exists(ConfigFilePath))
                     {
+                        System.Diagnostics.Debug.WriteLine("JsonConfig.Load: Config file exists, reading...");
                         try
                         {
                             string json = File.ReadAllText(ConfigFilePath);
+                            System.Diagnostics.Debug.WriteLine($"JsonConfig.Load: Read {json.Length} characters from JSON");
+
                             _config = SimpleJsonDeserializer.Deserialize(json);
+                            System.Diagnostics.Debug.WriteLine($"JsonConfig.Load: Deserialized successfully");
+                            System.Diagnostics.Debug.WriteLine($"  - WindowWidth: {_config.Application.WindowWidth}");
+                            System.Diagnostics.Debug.WriteLine($"  - WindowHeight: {_config.Application.WindowHeight}");
+                            System.Diagnostics.Debug.WriteLine($"  - CurrentProfile: {_config.Application.CurrentProfile}");
+                            System.Diagnostics.Debug.WriteLine($"  - Profiles count: {_config.Profiles.Count}");
+                            System.Diagnostics.Debug.WriteLine($"  - Groups count: {_config.Groups.Count}");
                         }
                         catch (Exception ex)
                         {
+                            System.Diagnostics.Debug.WriteLine($"JsonConfig.Load: Error deserializing JSON: {ex.Message}");
                             // If JSON is corrupted, create default and backup the old one
                             if (File.Exists(ConfigFilePath))
                             {
@@ -46,6 +58,7 @@ namespace ProgramManagerVC
                     }
                     else
                     {
+                        System.Diagnostics.Debug.WriteLine("JsonConfig.Load: Config file doesn't exist, creating default");
                         _config = CreateDefault();
                         Save(); // Create the initial JSON file
                     }
@@ -259,11 +272,194 @@ namespace ProgramManagerVC
     {
         public static ProgramConfig Deserialize(string json)
         {
-            // For now, just return a default config
-            // In a real implementation, you'd parse the JSON
-            // This is sufficient for the initial implementation
             var config = new ProgramConfig();
+
+            try
+            {
+                // Parse JSON manually (simple parser for our specific structure)
+                var lines = json.Split('\n').Select(l => l.Trim()).ToArray();
+
+                bool inApplication = false;
+                bool inProfiles = false;
+                bool inGroups = false;
+                bool inCurrentProfile = false;
+                string currentProfileName = "";
+                string currentGroupName = "";
+                bool inCurrentGroup = false;
+
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    var line = lines[i];
+
+                    if (line.Contains("\"application\":"))
+                    {
+                        inApplication = true;
+                        inProfiles = false;
+                        inGroups = false;
+                    }
+                    else if (line.Contains("\"profiles\":"))
+                    {
+                        inApplication = false;
+                        inProfiles = true;
+                        inGroups = false;
+                    }
+                    else if (line.Contains("\"groups\":"))
+                    {
+                        inApplication = false;
+                        inProfiles = false;
+                        inGroups = true;
+                    }
+
+                    if (inApplication)
+                    {
+                        ParseApplicationSetting(line, config.Application);
+                    }
+                    else if (inProfiles)
+                    {
+                        ParseProfileSettings(line, config, ref currentProfileName, ref inCurrentProfile);
+                    }
+                    else if (inGroups)
+                    {
+                        ParseGroupSettings(line, config, ref currentProfileName, ref currentGroupName, ref inCurrentProfile, ref inCurrentGroup);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"JSON parsing error: {ex.Message}");
+                // Return default config if parsing fails
+            }
+
             return config;
+        }
+
+        private static void ParseApplicationSetting(string line, ApplicationSettings app)
+        {
+            if (line.Contains("\"window_width\":"))
+                app.WindowWidth = ExtractIntValue(line);
+            else if (line.Contains("\"window_height\":"))
+                app.WindowHeight = ExtractIntValue(line);
+            else if (line.Contains("\"window_x\":"))
+                app.WindowX = ExtractIntValue(line);
+            else if (line.Contains("\"window_y\":"))
+                app.WindowY = ExtractIntValue(line);
+            else if (line.Contains("\"icon_size\":"))
+                app.IconSize = ExtractIntValue(line);
+            else if (line.Contains("\"username_in_title\":"))
+                app.UsernameInTitle = ExtractIntValue(line);
+            else if (line.Contains("\"active_window\":"))
+                app.ActiveWindow = ExtractStringValue(line);
+            else if (line.Contains("\"current_profile\":"))
+                app.CurrentProfile = ExtractStringValue(line);
+        }
+
+        private static void ParseProfileSettings(string line, ProgramConfig config, ref string currentProfileName, ref bool inCurrentProfile)
+        {
+            if (line.Contains("\":") && line.Contains("{") && !line.Contains("\"profiles\":"))
+            {
+                currentProfileName = ExtractKey(line);
+                inCurrentProfile = true;
+                if (!config.Profiles.ContainsKey(currentProfileName))
+                    config.Profiles[currentProfileName] = new ProfileSettings();
+            }
+            else if (inCurrentProfile && !string.IsNullOrEmpty(currentProfileName))
+            {
+                if (line.Contains("\"path\":"))
+                    config.Profiles[currentProfileName].Path = ExtractStringValue(line);
+                else if (line.Contains("\"is_default\":"))
+                    config.Profiles[currentProfileName].IsDefault = ExtractBoolValue(line);
+                else if (line.Contains("}"))
+                    inCurrentProfile = false;
+            }
+        }
+
+        private static void ParseGroupSettings(string line, ProgramConfig config, ref string currentProfileName, ref string currentGroupName, ref bool inCurrentProfile, ref bool inCurrentGroup)
+        {
+            if (line.Contains("\":") && line.Contains("{") && !line.Contains("\"groups\":"))
+            {
+                if (!inCurrentProfile)
+                {
+                    // This is a profile name under groups
+                    currentProfileName = ExtractKey(line);
+                    inCurrentProfile = true;
+                    if (!config.Groups.ContainsKey(currentProfileName))
+                        config.Groups[currentProfileName] = new Dictionary<string, GroupSettings>();
+                }
+                else
+                {
+                    // This is a group name under the current profile
+                    currentGroupName = ExtractKey(line);
+                    inCurrentGroup = true;
+                    config.Groups[currentProfileName][currentGroupName] = new GroupSettings();
+                }
+            }
+            else if (inCurrentGroup && !string.IsNullOrEmpty(currentGroupName))
+            {
+                var group = config.Groups[currentProfileName][currentGroupName];
+                if (line.Contains("\"window_status\":"))
+                    group.WindowStatus = ExtractIntValue(line);
+                else if (line.Contains("\"x\":"))
+                    group.X = ExtractIntValue(line);
+                else if (line.Contains("\"y\":"))
+                    group.Y = ExtractIntValue(line);
+                else if (line.Contains("\"width\":"))
+                    group.Width = ExtractIntValue(line);
+                else if (line.Contains("\"height\":"))
+                    group.Height = ExtractIntValue(line);
+                else if (line.Contains("}") && !line.Contains("shortcut_order"))
+                    inCurrentGroup = false;
+            }
+            else if (line.Contains("}") && inCurrentProfile && !inCurrentGroup)
+            {
+                inCurrentProfile = false;
+            }
+        }
+
+        private static int ExtractIntValue(string line)
+        {
+            var colonIndex = line.IndexOf(':');
+            if (colonIndex >= 0)
+            {
+                var valueStr = line.Substring(colonIndex + 1).Trim().TrimEnd(',');
+                if (int.TryParse(valueStr, out int result))
+                    return result;
+            }
+            return 0;
+        }
+
+        private static string ExtractStringValue(string line)
+        {
+            var colonIndex = line.IndexOf(':');
+            if (colonIndex >= 0)
+            {
+                var valueStr = line.Substring(colonIndex + 1).Trim().TrimEnd(',');
+                if (valueStr.StartsWith("\"") && valueStr.EndsWith("\""))
+                    return valueStr.Substring(1, valueStr.Length - 2);
+            }
+            return "";
+        }
+
+        private static bool ExtractBoolValue(string line)
+        {
+            var colonIndex = line.IndexOf(':');
+            if (colonIndex >= 0)
+            {
+                var valueStr = line.Substring(colonIndex + 1).Trim().TrimEnd(',');
+                return valueStr == "true";
+            }
+            return false;
+        }
+
+        private static string ExtractKey(string line)
+        {
+            var colonIndex = line.IndexOf(':');
+            if (colonIndex >= 0)
+            {
+                var keyStr = line.Substring(0, colonIndex).Trim();
+                if (keyStr.StartsWith("\"") && keyStr.EndsWith("\""))
+                    return keyStr.Substring(1, keyStr.Length - 2);
+            }
+            return "";
         }
     }
 }

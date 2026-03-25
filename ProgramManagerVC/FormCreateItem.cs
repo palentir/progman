@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -65,7 +65,7 @@ namespace ProgramManagerVC
             {
                 // Editing existing shortcut
                 var groupName = GetGroupNameFromId(id_group);
-                var shortcuts = FileBasedData.GetShortcutsInGroup(groupName);
+                var shortcuts = JsonBasedData.GetShortcutsInGroup(groupName);
                 existingShortcut = shortcuts.FirstOrDefault(s => s.Name == shortcut_name);
                 
                 if (existingShortcut != null)
@@ -100,7 +100,7 @@ namespace ProgramManagerVC
 
         private string GetGroupNameFromId(string id)
         {
-            var groups = FileBasedData.GetAllGroups();
+            var groups = JsonBasedData.GetAllGroups();
             var group = groups.FirstOrDefault(g => g.Id == id);
             return group?.Name ?? "";
         }
@@ -111,7 +111,7 @@ namespace ProgramManagerVC
             imageListIcons.Images.Clear();
             
             // Expand environment variables in the file path
-            string expandedPath = FileBasedData.ExpandEnvironmentVariables(filePath);
+            string expandedPath = JsonBasedData.ExpandEnvironmentVariables(filePath);
             
             if (!File.Exists(expandedPath))
             {
@@ -309,7 +309,7 @@ namespace ProgramManagerVC
             string iconPathToLoad = string.IsNullOrEmpty(textBoxIconPath.Text) ? textBoxPath.Text : textBoxIconPath.Text;
             
             // Expand environment variables before checking file existence
-            string expandedIconPath = FileBasedData.ExpandEnvironmentVariables(iconPathToLoad);
+            string expandedIconPath = JsonBasedData.ExpandEnvironmentVariables(iconPathToLoad);
             
             if (!string.IsNullOrEmpty(expandedIconPath) && File.Exists(expandedIconPath))
             {
@@ -351,7 +351,7 @@ namespace ProgramManagerVC
         private void ButtonOK_Click(object sender, EventArgs e)
         {
             // Expand environment variables before checking file existence
-            string expandedTargetPath = FileBasedData.ExpandEnvironmentVariables(textBoxPath.Text);
+            string expandedTargetPath = JsonBasedData.ExpandEnvironmentVariables(textBoxPath.Text);
             
             if (!System.IO.File.Exists(expandedTargetPath))
             {
@@ -382,18 +382,18 @@ namespace ProgramManagerVC
                 if (existingShortcut == null)
                 {
                     // Creating new shortcut
-                    FileBasedData.CreateShortcut(groupName, textBoxName.Text, textBoxPath.Text, parameters, actualIconPath, selectedIconIndex);
+                    JsonBasedData.CreateShortcut(groupName, textBoxName.Text, textBoxPath.Text, parameters, actualIconPath, selectedIconIndex);
                 }
                 else
                 {
                     // Delete old shortcut if name changed
                     if (existingShortcut.Name != textBoxName.Text)
                     {
-                        FileBasedData.DeleteShortcut(groupName, existingShortcut.Name + ".lnk");
+                        JsonBasedData.DeleteShortcut(groupName, existingShortcut.Name + ".lnk");
                     }
                     
                     // Create updated shortcut
-                    FileBasedData.CreateShortcut(groupName, textBoxName.Text, textBoxPath.Text, parameters, actualIconPath, selectedIconIndex);
+                    JsonBasedData.CreateShortcut(groupName, textBoxName.Text, textBoxPath.Text, parameters, actualIconPath, selectedIconIndex);
                 }
                 
                 this.DialogResult = DialogResult.OK;
@@ -432,7 +432,7 @@ namespace ProgramManagerVC
             if (string.IsNullOrEmpty(textBoxIconPath.Text) && !string.IsNullOrEmpty(textBoxPath.Text))
             {
                 // Expand environment variables before checking file existence
-                string expandedPath = FileBasedData.ExpandEnvironmentVariables(textBoxPath.Text);
+                string expandedPath = JsonBasedData.ExpandEnvironmentVariables(textBoxPath.Text);
                 
                 if (File.Exists(expandedPath))
                 {

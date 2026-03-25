@@ -73,6 +73,30 @@ namespace ProgramManagerVC
             InitializeComponent();
             this.MdiChildActivate += FormMain_MdiChildActivate;
             this.Resize += FormMain_Resize;
+
+            // Set the application icon explicitly for better taskbar display
+            try
+            {
+                string iconPath = System.IO.Path.Combine(Application.StartupPath, "Resources", "progman.ico");
+                if (System.IO.File.Exists(iconPath))
+                {
+                    this.Icon = new Icon(iconPath);
+                }
+                else
+                {
+                    // Fallback: try the root folder icon
+                    iconPath = System.IO.Path.Combine(Application.StartupPath, "progman_icon.ico");
+                    if (System.IO.File.Exists(iconPath))
+                    {
+                        this.Icon = new Icon(iconPath);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Could not load custom icon: {ex.Message}");
+                // Icon will fall back to the embedded resource icon
+            }
         }
 
         private void NewToolStripMenuItem_Click(object sender, EventArgs e)
@@ -121,11 +145,11 @@ namespace ProgramManagerVC
             if (progman64.Properties.Settings.Default.UsernameInTitle == 1)
             {
                 // Show only username without domain/workgroup
-                Text = $"PM.NET - {Environment.UserName}";
+                Text = $"Program Manager .NET - {Environment.UserName}";
             }
             else
             {
-                Text = "PM.NET";
+                Text = "Program Manager .NET";
             }
         }
 
@@ -148,22 +172,22 @@ namespace ProgramManagerVC
         {
             try
             {
-                // Load the current profile or default to Main
+                // Load the current profile or default to Default
                 var currentProfile = JsonBasedData.GetCurrentProfile();
                 var profiles = JsonBasedData.GetAllProfiles();
                 
-                // Ensure we have at least the Main profile
+                // Ensure we have at least the Default profile
                 if (profiles == null || profiles.Count == 0)
                 {
-                    // Create default Default profile if no profiles exist - use "Shortcuts" as folder name
-                    var defaultShortcutsPath = Path.Combine(Application.StartupPath, "Shortcuts");
-                    if (!Directory.Exists(defaultShortcutsPath))
-                        Directory.CreateDirectory(defaultShortcutsPath);
+                    // Create default Main profile if no profiles exist
+                    var mainGroupsPath = Path.Combine(Application.StartupPath, "Groups");
+                    if (!Directory.Exists(mainGroupsPath))
+                        Directory.CreateDirectory(mainGroupsPath);
 
                     // Create Default profile
-                    JsonBasedData.SaveProfile("Default", defaultShortcutsPath);
+                    JsonBasedData.SaveProfile("Default", mainGroupsPath);
                     JsonBasedData.SetCurrentProfile("Default");
-                    
+
                     // Reload profiles
                     profiles = JsonBasedData.GetAllProfiles();
                     currentProfile = "Default";
@@ -177,14 +201,14 @@ namespace ProgramManagerVC
                     if (activeProfile == null)
                     {
                         // This should not happen, but handle it gracefully
-                        MessageBox.Show("No profiles available. Creating default Main profile.", 
+                        MessageBox.Show("No profiles available. Creating default Default profile.", 
                             "Profile Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
                     // Update current profile to the fallback
                     JsonBasedData.SetCurrentProfile(activeProfile.Name);
                 }
-                
+
                 // Set the groups folder based on active profile
                 JsonBasedData.SetGroupsFolder(activeProfile.Path);
 
@@ -224,28 +248,15 @@ namespace ProgramManagerVC
                         {
                             windowToActivate = child;
                         }
-                        
-                        // Determine window state based on first-time display and group type
-                        int windowState = groupInfo.WindowStatus;
-                        
-                        // Special handling for first-time profile display
-                        if (isFirstTimeDisplayingProfile)
-                        {
-                            if (groupInfo.Name == "Programs")
-                            {
-                                // Programs group (root Programs) should be visible on first display
-                                windowState = 1; // Normal/Visible
-                                windowToActivate = child; // Make it the active window
-                            }
-                            else
-                            {
-                                // All other groups should be minimized by default
-                                windowState = 0; // Minimized
-                            }
-                        }
-                        
+
                         // Set window state
-                        switch (windowState)
+                        var windowStatus = groupInfo.WindowStatus;
+                        if (windowStatus == 0) // Force Normal instead of Minimized
+                        {
+                            windowStatus = 1;
+                        }
+
+                        switch (windowStatus)
                         {
                             case 0: // Minimized
                                 child.Show();
@@ -289,7 +300,7 @@ namespace ProgramManagerVC
                         // Ensure the Shortcuts folder exists
                         if (!Directory.Exists(activeProfile.Path))
                             Directory.CreateDirectory(activeProfile.Path);
-
+                        
                         // Don't create any shortcuts - leave the Shortcuts folder empty
                         // Users can add shortcuts manually as needed
                         // No need to reload - just continue with empty state
@@ -373,8 +384,6 @@ namespace ProgramManagerVC
                     if (createform.ShowDialog() == DialogResult.OK)
                     {
                         activeChild.InitializeItems();
-                        // Refresh all other windows in case they're showing the same folder
-                        RefreshAllChildWindows();
                     }
                 }
             }
@@ -387,30 +396,82 @@ namespace ProgramManagerVC
                 if (activeChild.listViewMain.SelectedItems.Count > 0)
                 {
                     var selectedItem = activeChild.listViewMain.SelectedItems[0];
-                    if (MessageBox.Show("Do you really want to delete the \"" + selectedItem.Text + "\" item?",
-                                       "Confirm",
+                    var shortcutInfo = (ShortcutInfo)selectedItem.Tag;
+                    
+                    string message = $"Are you sure you want to permanently delete the file:\n\n{selectedItem.Text}.lnk";
+                    
+                    if (MessageBox.Show(message, "Confirm Delete",
                                        MessageBoxButtons.YesNo,
                                        MessageBoxIcon.Question) == DialogResult.Yes)
                     {
-                        // Delete the .lnk file
-                        var groupName = GetGroupNameFromId(activeChild.Tag.ToString());
-                        var shortcutFileName = selectedItem.Text + ".lnk";
-                        JsonBasedData.DeleteShortcut(groupName, shortcutFileName);
-                        activeChild.InitializeItems();
-                        // Refresh all other windows in case they're showing the same folder
-                        RefreshAllChildWindows();
+                        try
+                        {
+                            // Delete the .lnk file
+                            if (File.Exists(shortcutInfo.ShortcutPath))
+                            {
+                                File.Delete(shortcutInfo.ShortcutPath);
+                            }
+                            
+                            activeChild.InitializeItems();
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show($"Error deleting file: {ex.Message}",
+                                "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
                     }
                 }
                 else
                 {
-                    if (MessageBox.Show("Do you really want to delete \"" + activeChild.Text + "\" group?",
-                                   "Confirm",
-                                   MessageBoxButtons.YesNo,
-                                   MessageBoxIcon.Question) == DialogResult.Yes)
+                    var groupName = GetGroupNameFromId(activeChild.Tag.ToString());
+                    
+                    // Special handling for Programs group
+                    if (groupName == "Programs")
                     {
-                        var groupName = GetGroupNameFromId(activeChild.Tag.ToString());
-                        JsonBasedData.DeleteGroup(groupName);
-                        activeChild.Hide();
+                        var profilePath = JsonBasedData.GetGroupsFolder();
+                        string message = $"Are you sure you want to delete all shortcuts in:\n\n{profilePath}";
+                        
+                        if (MessageBox.Show(message, "Confirm Delete All Shortcuts",
+                                           MessageBoxButtons.YesNo,
+                                           MessageBoxIcon.Question) == DialogResult.Yes)
+                        {
+                            try
+                            {
+                                // Delete all .lnk files in the root of the profile folder
+                                var rootLnkFiles = Directory.GetFiles(profilePath, "*.lnk", SearchOption.TopDirectoryOnly);
+                                foreach (var lnkFile in rootLnkFiles)
+                                {
+                                    File.Delete(lnkFile);
+                                }
+                                
+                                activeChild.InitializeItems();
+                            }
+                            catch (Exception ex)
+                            {
+                                MessageBox.Show($"Error deleting shortcuts: {ex.Message}",
+                                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        string message = $"Are you sure you want to permanently delete the folder:\n\n{groupName}";
+                        
+                        if (MessageBox.Show(message, "Confirm Delete Folder",
+                                           MessageBoxButtons.YesNo,
+                                           MessageBoxIcon.Question) == DialogResult.Yes)
+                        {
+                            try
+                            {
+                                JsonBasedData.DeleteGroup(groupName);
+                                activeChild.Hide();
+                            }
+                            catch (Exception ex)
+                            {
+                                MessageBox.Show($"Error deleting group: {ex.Message}",
+                                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            }
+                        }
                     }
                 }
             }
@@ -555,40 +616,9 @@ namespace ProgramManagerVC
             windowsToolStripMenuItem.DropDownItems.Add(tileHorizontalToolStripMenuItem);
             windowsToolStripMenuItem.DropDownItems.Add(cascadeToolStripMenuItem);
 
-            // Add Icon Size submenu
-            var iconSizeMenu = new ToolStripMenuItem("Icon Size");
-
-            // Get current icon size from active window or default to 32
-            int currentIconSize = 32;
-            var activeChild = this.ActiveMdiChild as FormChild;
-            if (activeChild != null)
-            {
-                // We'll need to add a public property to get the current icon size
-                currentIconSize = activeChild.GetCurrentIconSize();
-            }
-
-            // Add icon size options
-            var smallItem = new ToolStripMenuItem("Small (16px)", null, (s, a) => SetAllChildrenIconSize(16));
-            smallItem.Checked = (currentIconSize == 16);
-            iconSizeMenu.DropDownItems.Add(smallItem);
-
-            var mediumItem = new ToolStripMenuItem("Medium (32px)", null, (s, a) => SetAllChildrenIconSize(32));
-            mediumItem.Checked = (currentIconSize == 32);
-            iconSizeMenu.DropDownItems.Add(mediumItem);
-
-            var largeItem = new ToolStripMenuItem("Large (48px)", null, (s, a) => SetAllChildrenIconSize(48));
-            largeItem.Checked = (currentIconSize == 48);
-            iconSizeMenu.DropDownItems.Add(largeItem);
-
-            var extraLargeItem = new ToolStripMenuItem("Extra Large (64px)", null, (s, a) => SetAllChildrenIconSize(64));
-            extraLargeItem.Checked = (currentIconSize == 64);
-            iconSizeMenu.DropDownItems.Add(extraLargeItem);
-
-            windowsToolStripMenuItem.DropDownItems.Add(iconSizeMenu);
-
             // Get only FormChild windows (exclude IconHostForm)
             var childWindows = this.MdiChildren.OfType<FormChild>().ToList();
-
+            
             if (childWindows.Count > 0)
             {
                 windowsToolStripMenuItem.DropDownItems.Add(new ToolStripSeparator());
@@ -599,29 +629,17 @@ namespace ProgramManagerVC
             {
                 FormChild child = childWindows[i];
                 int windowNumber = i + 1;
-
+                
                 ToolStripMenuItem item = new ToolStripMenuItem($"{windowNumber} {child.Text}", null, (s, a) =>
                 {
                     child.BringToFront();
                     child.Activate();
                 });
-
+                
                 // Add checkmark to currently active window (only if not minimized)
                 item.Checked = (child == this.ActiveMdiChild && child.WindowState != FormWindowState.Minimized);
-
+                
                 windowsToolStripMenuItem.DropDownItems.Add(item);
-            }
-        }
-
-        private void SetAllChildrenIconSize(int iconSize)
-        {
-            // Apply icon size to all FormChild windows
-            var childWindows = this.MdiChildren.OfType<FormChild>().ToList();
-
-            if (childWindows.Count > 0)
-            {
-                // Use the first window to set the size (which will notify and update all others)
-                childWindows[0].SetIconSize(iconSize);
             }
         }
 
@@ -826,7 +844,7 @@ namespace ProgramManagerVC
 
         private void profileToolStripMenuItem_DropDownOpening(object sender, EventArgs e)
         {
-            // Clear existing profile items (keep Local Folder, separator, Add Profile, Delete Profile)
+            // Clear existing profile items (keep Main, separator, Add Profile, Delete Profile)
             var itemsToRemove = new List<ToolStripItem>();
             for (int i = 0; i < profileToolStripMenuItem.DropDownItems.Count; i++)
             {
@@ -849,11 +867,11 @@ namespace ProgramManagerVC
             var profiles = JsonBasedData.GetAllProfiles();
             var currentProfile = JsonBasedData.GetCurrentProfile();
             
-            // Mark current profile (Local Folder represents Main profile)
-            mainProfileToolStripMenuItem.Checked = (currentProfile == "Default");
+            // Mark current profile
+            mainProfileToolStripMenuItem.Checked = (currentProfile == "Main");
             
-            // Insert custom profiles after Local Folder but before separator
-            int insertIndex = 1; // After Local Folder
+            // Insert custom profiles after Main but before separator
+            int insertIndex = 1; // After Main
             
             foreach (var profile in profiles.Where(p => p.Name != "Default"))
             {
@@ -879,7 +897,7 @@ namespace ProgramManagerVC
             // Use the enhanced folder browser experience
             using (var folderDialog = new FolderBrowserDialog())
             {
-                folderDialog.Description = "Add a folder containing Programs";
+                folderDialog.Description = "Add a folder containing shortcuts";
                 folderDialog.ShowNewFolderButton = true;
                 folderDialog.SelectedPath = Application.StartupPath;
                 
@@ -936,7 +954,7 @@ namespace ProgramManagerVC
             
             if (currentProfile == "Default")
             {
-                MessageBox.Show("Cannot delete the Main profile.", 
+                MessageBox.Show("Cannot delete the Default profile.", 
                     "Cannot Delete", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -948,7 +966,7 @@ namespace ProgramManagerVC
                 {
                     JsonBasedData.DeleteProfile(currentProfile);
                     
-                    // Switch back to Main profile
+                    // Switch back to Default profile
                     LoadProfile("Default");
                     
                     MessageBox.Show($"Profile '{currentProfile}' deleted successfully.", 
@@ -968,13 +986,13 @@ namespace ProgramManagerVC
             {
                 // Set current profile
                 JsonBasedData.SetCurrentProfile(profileName);
-                
+
                 // Close all existing windows
                 CloseAllMDIWindows();
-                
+
                 // Reload the application with the new profile
                 InitializeMDI();
-                
+
                 // Don't show profile name in title - keep it clean
                 // Title will be set by InitializeMDI() calling InitializeTitle()
             }
@@ -985,39 +1003,30 @@ namespace ProgramManagerVC
             }
         }
 
-        #endregion
-
-        #region Universal Icon Size Management
-
         /// <summary>
-        /// Notify that icon size changed from one window, update all others
+        /// Notifies all child windows when icon size has changed
         /// </summary>
-        public void NotifyIconSizeChanged(FormChild originWindow, int newSize)
+        public void NotifyIconSizeChanged(FormChild excludeForm, int newSize)
         {
-            var childWindows = this.MdiChildren.OfType<FormChild>().ToList();
-
-            foreach (var child in childWindows)
+            foreach (Form child in this.MdiChildren)
             {
-                // Update all windows except the one that initiated the change
-                if (child != originWindow)
+                if (child is FormChild formChild && child != excludeForm)
                 {
-                    child.SetIconSizeSilent(newSize);
+                    formChild.SetIconSize(newSize);
                 }
             }
         }
 
         /// <summary>
-        /// Refresh all child windows (useful when shortcuts are added/deleted)
+        /// Refreshes all child windows
         /// </summary>
         public void RefreshAllChildWindows()
         {
-            var childWindows = this.MdiChildren.OfType<FormChild>().ToList();
-
-            foreach (var child in childWindows)
+            foreach (Form child in this.MdiChildren)
             {
-                if (child.WindowState != FormWindowState.Minimized)
+                if (child is FormChild formChild)
                 {
-                    child.BeginInvoke(new Action(() => child.InitializeItems()));
+                    formChild.InitializeItems();
                 }
             }
         }

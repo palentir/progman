@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -22,7 +22,7 @@ namespace ProgramManagerVC
             try
             {
                 // Expand environment variables before executing
-                string expandedPath = FileBasedData.ExpandEnvironmentVariables(textBoxPath.Text);
+                string expandedPath = JsonBasedData.ExpandEnvironmentVariables(textBoxPath.Text);
                 Process.Start(expandedPath);
             } 
             catch (Exception ex)

@@ -315,10 +315,18 @@ namespace ProgramManagerVC
         public static List<ShortcutInfo> GetShortcutsInGroupWithRoot(string groupName)
         {
             var shortcuts = new List<ShortcutInfo>();
-            
+
+            // Always check for subfolders with the group name first (for backward compatibility)
+            var groupPath = Path.Combine(currentGroupsFolder, groupName);
+            if (Directory.Exists(groupPath))
+            {
+                var subFolderShortcuts = GetShortcutsInGroup(groupName);
+                shortcuts.AddRange(subFolderShortcuts);
+            }
+
+            // For "Programs" group, also look for .lnk files in the root folder
             if (groupName == "Programs")
             {
-                // For "Programs" group, look for .lnk files in the root folder
                 var rootLnkFiles = Directory.GetFiles(currentGroupsFolder, "*.lnk", SearchOption.TopDirectoryOnly);
                 foreach (var lnkFile in rootLnkFiles)
                 {
@@ -336,14 +344,6 @@ namespace ProgramManagerVC
                     }
                 }
             }
-            
-            // Also check for subfolders with the group name
-            var groupPath = Path.Combine(currentGroupsFolder, groupName);
-            if (Directory.Exists(groupPath))
-            {
-                var subFolderShortcuts = GetShortcutsInGroup(groupName);
-                shortcuts.AddRange(subFolderShortcuts);
-            }
 
             // Load display order from INI and apply it
             LoadShortcutDisplayOrder(shortcuts, groupName);
@@ -356,12 +356,23 @@ namespace ProgramManagerVC
         /// </summary>
         public static void CreateShortcut(string groupName, string shortcutName, string targetPath, string arguments = "", string iconPath = "", int iconIndex = 0)
         {
-            var groupPath = Path.Combine(currentGroupsFolder, groupName);
-            if (!Directory.Exists(groupPath))
-                CreateGroup(groupName);
+            string shortcutPath;
 
-            var shortcutPath = Path.Combine(groupPath, shortcutName + ".lnk");
-            
+            if (groupName == "Programs")
+            {
+                // For Programs group, place shortcuts directly in the root folder
+                shortcutPath = Path.Combine(currentGroupsFolder, shortcutName + ".lnk");
+            }
+            else
+            {
+                // For other groups, create a subfolder
+                var groupPath = Path.Combine(currentGroupsFolder, groupName);
+                if (!Directory.Exists(groupPath))
+                    CreateGroup(groupName);
+
+                shortcutPath = Path.Combine(groupPath, shortcutName + ".lnk");
+            }
+
             // Create the shortcut using IShellLink
             CreateShortcutFile(shortcutPath, targetPath, arguments, iconPath, iconIndex);
         }
@@ -371,9 +382,20 @@ namespace ProgramManagerVC
         /// </summary>
         public static void DeleteShortcut(string groupName, string shortcutFileName)
         {
-            var groupPath = Path.Combine(currentGroupsFolder, groupName);
-            var shortcutPath = Path.Combine(groupPath, shortcutFileName);
-            
+            string shortcutPath;
+
+            if (groupName == "Programs")
+            {
+                // For Programs group, shortcuts are in the root folder
+                shortcutPath = Path.Combine(currentGroupsFolder, shortcutFileName);
+            }
+            else
+            {
+                // For other groups, shortcuts are in subfolders
+                var groupPath = Path.Combine(currentGroupsFolder, groupName);
+                shortcutPath = Path.Combine(groupPath, shortcutFileName);
+            }
+
             if (File.Exists(shortcutPath))
             {
                 File.Delete(shortcutPath);

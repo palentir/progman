@@ -9,6 +9,7 @@ using System.Windows.Forms;
 using System.Diagnostics;
 using System.Drawing.Drawing2D;
 using System.IO;
+using System.Runtime.InteropServices;
 
 namespace ProgramManagerVC
 {
@@ -17,6 +18,32 @@ namespace ProgramManagerVC
         private FormWindowState previousWindowState;
         private Icon originalIcon;
         private int currentIconSize = 32; // Default icon size
+
+        // Windows API declarations
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr ShellExecuteW(
+            IntPtr hwnd,
+            string lpOperation,
+            string lpFile,
+            string lpParameters,
+            string lpDirectory,
+            int nShowCmd);
+
+        private const int SW_SHOW = 5;
+
+        // System menu API declarations
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetSystemMenu(IntPtr hWnd, bool bRevert);
+
+        [DllImport("user32.dll")]
+        private static extern bool AppendMenu(IntPtr hMenu, uint uFlags, uint uIDNewItem, string lpNewItem);
+
+        private const uint MF_SEPARATOR = 0x00000800;
+        private const uint MF_STRING = 0x00000000;
+        private const uint WM_SYSCOMMAND = 0x0112;
+
+        // Custom system menu item ID
+        private const uint IDM_OPEN_FOLDER = 0x1000;
 
         public FormChild()
         {
@@ -44,17 +71,43 @@ namespace ProgramManagerVC
         private void FormChild_Load(object sender, EventArgs e)
         {
             // Load saved icon size from INI
-            LoadIconSizeFromINI();
+            LoadIconSizeFromJSON();
+
+            System.Diagnostics.Debug.WriteLine($"FormChild_Load: currentIconSize = {currentIconSize}");
+
+            // Set ImageList size to match loaded icon size
+            imageListIcons.ImageSize = new Size(currentIconSize, currentIconSize);
+            System.Diagnostics.Debug.WriteLine($"FormChild_Load: Set ImageList size to {imageListIcons.ImageSize}");
+
+            // Ensure ListView is properly connected to ImageList
+            listViewMain.LargeImageList = imageListIcons;
+            System.Diagnostics.Debug.WriteLine($"FormChild_Load: Connected ImageList to ListView");
+
+            // Configure ListView for better icon display
+            listViewMain.View = View.LargeIcon;
 
             InitializeItems();
+
+            // If no items were loaded, add a test item to see if icons work at all
+            if (listViewMain.Items.Count == 0)
+            {
+                System.Diagnostics.Debug.WriteLine("No shortcuts found, adding test item");
+                var testBitmap = new Bitmap(SystemIcons.Information.ToBitmap(), new Size(currentIconSize, currentIconSize));
+                imageListIcons.Images.Add(testBitmap);
+
+                var testItem = new ListViewItem("Test Icon - No shortcuts found");
+                testItem.ImageIndex = 0;
+                testItem.ToolTipText = "This is a test icon. No actual shortcuts were found in the directory.";
+                // Don't set a Tag so the double-click handler will safely ignore it
+                listViewMain.Items.Add(testItem);
+                System.Diagnostics.Debug.WriteLine("Added test item with Information icon");
+            }
+
             if (System.Environment.OSVersion.Version.Major < 6) {
                 runAsAdministratorToolStripMenuItem.Visible = false;
             } else {
                 runAsAdministratorToolStripMenuItem.Image = SystemIcons.Shield.ToBitmap();
             }
-
-            // Configure ListView for better icon display
-            listViewMain.View = View.LargeIcon;
 
             // The larger ImageList size (48x48) will automatically provide better spacing
 
@@ -79,6 +132,9 @@ namespace ProgramManagerVC
             // Enable mouse wheel for icon sizing
             this.MouseWheel += FormChild_MouseWheel;
             listViewMain.MouseWheel += FormChild_MouseWheel;
+
+            // Add custom system menu item
+            AddSystemMenuItems();
         }
         
         private void ListMenu_Opening(object sender, System.ComponentModel.CancelEventArgs e)
@@ -138,8 +194,15 @@ namespace ProgramManagerVC
         {
             if (listViewMain.SelectedItems.Count > 0)
             {
-                var shortcutInfo = (ShortcutInfo)listViewMain.SelectedItems[0].Tag;
-                
+                var selectedItem = listViewMain.SelectedItems[0];
+
+                // Check if the Tag contains a valid ShortcutInfo object
+                if (!(selectedItem.Tag is ShortcutInfo shortcutInfo))
+                {
+                    System.Diagnostics.Debug.WriteLine("Double-clicked item does not have valid ShortcutInfo in Tag");
+                    return;
+                }
+
                 // Expand environment variables before checking file existence
                 string expandedTargetPath = JsonBasedData.ExpandEnvironmentVariables(shortcutInfo.TargetPath);
                 
@@ -185,39 +248,99 @@ namespace ProgramManagerVC
         {
             listViewMain.Items.Clear();
             imageListIcons.Images.Clear();
-            
+
             var groupName = GetGroupNameFromId(this.Tag?.ToString() ?? "");
-            if (string.IsNullOrEmpty(groupName)) return;
+            if (string.IsNullOrEmpty(groupName)) 
+            {
+                System.Diagnostics.Debug.WriteLine("ERROR: Group name is empty!");
+                return;
+            }
 
             // Use the root-handling version to catch .lnk files in root folder
             var shortcuts = JsonBasedData.GetShortcutsInGroupWithRoot(groupName);
+
+            // Debug output to help diagnose the issue
+            System.Diagnostics.Debug.WriteLine($"Loading shortcuts for group: {groupName}");
+            System.Diagnostics.Debug.WriteLine($"Found {shortcuts.Count} shortcuts");
+
+            if (shortcuts.Count == 0)
+            {
+                System.Diagnostics.Debug.WriteLine("No shortcuts found - checking folder path...");
+                var folderPath = JsonBasedData.GetGroupsFolder();
+                System.Diagnostics.Debug.WriteLine($"Groups folder: {folderPath}");
+                System.Diagnostics.Debug.WriteLine($"Application startup path: {System.Windows.Forms.Application.StartupPath}");
+                System.Diagnostics.Debug.WriteLine($"Expected path should be: {System.IO.Path.Combine(System.Windows.Forms.Application.StartupPath, "Shortcuts")}");
+
+                if (System.IO.Directory.Exists(folderPath))
+                {
+                    var files = System.IO.Directory.GetFiles(folderPath, "*.lnk");
+                    System.Diagnostics.Debug.WriteLine($"Found {files.Length} .lnk files in folder");
+                    foreach (var file in files)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"  - {file}");
+                    }
+
+                    // Also check subfolders
+                    var subfolders = System.IO.Directory.GetDirectories(folderPath);
+                    System.Diagnostics.Debug.WriteLine($"Found {subfolders.Length} subfolders:");
+                    foreach (var subfolder in subfolders)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"  - {subfolder}");
+                        var subFiles = System.IO.Directory.GetFiles(subfolder, "*.lnk");
+                        System.Diagnostics.Debug.WriteLine($"    Contains {subFiles.Length} .lnk files");
+                    }
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("Groups folder does not exist!");
+
+                    // Check if the expected Shortcuts folder exists
+                    var expectedPath = System.IO.Path.Combine(System.Windows.Forms.Application.StartupPath, "Shortcuts");
+                    if (System.IO.Directory.Exists(expectedPath))
+                    {
+                        System.Diagnostics.Debug.WriteLine($"But expected path exists: {expectedPath}");
+                        var files = System.IO.Directory.GetFiles(expectedPath, "*.lnk");
+                        System.Diagnostics.Debug.WriteLine($"Expected path has {files.Length} .lnk files");
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Expected path also doesn't exist: {expectedPath}");
+                    }
+                }
+            }
             
             for (int i = 0; i < shortcuts.Count; i++)
             {
                 var shortcut = shortcuts[i];
-                
+
                 try
                 {
+                    System.Diagnostics.Debug.WriteLine($"Processing shortcut {i}: {shortcut.Name} -> {shortcut.TargetPath}");
+
                     // Try to load the icon with multiple fallback strategies
                     Icon extractedIcon = ExtractIconFromShortcut(shortcut);
-                    
+
                     // Add the icon to the image list
                     if (extractedIcon != null)
                     {
+                        System.Diagnostics.Debug.WriteLine($"  Extracted icon successfully, resizing to {currentIconSize}x{currentIconSize}");
                         // Resize icon to fit the current icon size
                         var bitmap = new Bitmap(extractedIcon.ToBitmap(), new Size(currentIconSize, currentIconSize));
                         imageListIcons.Images.Add(bitmap);
                     }
                     else
                     {
+                        System.Diagnostics.Debug.WriteLine($"  No icon extracted, using default application icon");
                         // Ultimate fallback - use a default application icon
                         var bitmap = new Bitmap(SystemIcons.Application.ToBitmap(), new Size(currentIconSize, currentIconSize));
                         imageListIcons.Images.Add(bitmap);
                     }
-                    
+
                     ListViewItem item = new ListViewItem();
                     item.Text = shortcut.Name;
                     item.ImageIndex = i;
+
+                    System.Diagnostics.Debug.WriteLine($"  Added ListView item with ImageIndex={i}, ImageList has {imageListIcons.Images.Count} images");
                     
                     // Build tooltip with target and arguments, showing environment variables if present
                     string tooltip = shortcut.TargetPath;
@@ -271,7 +394,7 @@ namespace ProgramManagerVC
 
                     var bitmap = new Bitmap(SystemIcons.Error.ToBitmap(), new Size(currentIconSize, currentIconSize));
                     imageListIcons.Images.Add(bitmap);
-                    
+
                     ListViewItem item = new ListViewItem();
                     item.Text = shortcut.Name;
                     item.ImageIndex = i;
@@ -279,6 +402,21 @@ namespace ProgramManagerVC
                     item.Tag = shortcut;
                     listViewMain.Items.Add(item);
                 }
+            }
+
+            // Final debug output
+            System.Diagnostics.Debug.WriteLine($"InitializeItems complete:");
+            System.Diagnostics.Debug.WriteLine($"  - ListView items: {listViewMain.Items.Count}");
+            System.Diagnostics.Debug.WriteLine($"  - ImageList images: {imageListIcons.Images.Count}");
+            System.Diagnostics.Debug.WriteLine($"  - ImageList size: {imageListIcons.ImageSize}");
+            System.Diagnostics.Debug.WriteLine($"  - ListView LargeImageList connected: {listViewMain.LargeImageList != null}");
+            System.Diagnostics.Debug.WriteLine($"  - Current icon size: {currentIconSize}");
+
+            // Ensure the ImageList is properly connected (redundant but safe)
+            if (listViewMain.LargeImageList != imageListIcons)
+            {
+                System.Diagnostics.Debug.WriteLine("WARNING: Reconnecting ImageList to ListView");
+                listViewMain.LargeImageList = imageListIcons;
             }
         }
 
@@ -389,9 +527,21 @@ namespace ProgramManagerVC
 
         private string GetGroupNameFromId(string id)
         {
+            System.Diagnostics.Debug.WriteLine($"GetGroupNameFromId called with id: '{id}'");
+
             var groups = JsonBasedData.GetAllGroups();
+            System.Diagnostics.Debug.WriteLine($"Found {groups.Count} groups total");
+
+            foreach (var g in groups)
+            {
+                System.Diagnostics.Debug.WriteLine($"  Group: Id='{g.Id}', Name='{g.Name}'");
+            }
+
             var group = groups.FirstOrDefault(g => g.Id == id);
-            return group?.Name ?? "";
+            var result = group?.Name ?? "";
+            System.Diagnostics.Debug.WriteLine($"GetGroupNameFromId returning: '{result}'");
+
+            return result;
         }
 
         // Windows API function for extracting icons
@@ -657,11 +807,54 @@ namespace ProgramManagerVC
             if (listViewMain.SelectedItems.Count > 0)
             {
                 var selectedItem = listViewMain.SelectedItems[0];
-                using (FormCreateItem createform = new FormCreateItem(this.Tag?.ToString() ?? "", selectedItem.Text))
+                var shortcutInfo = (ShortcutInfo)selectedItem.Tag;
+
+                try
                 {
-                    if (createform.ShowDialog() == DialogResult.OK)
+                    // Use ShellExecuteW to open shortcut properties (Explorer properties dialog)
+                    IntPtr result = ShellExecuteW(
+                        this.Handle,              // Parent window handle
+                        "properties",             // Operation - open properties dialog
+                        shortcutInfo.ShortcutPath,  // File path to the .lnk file
+                        null,                     // No parameters
+                        null,                     // No working directory (uses default)
+                        SW_SHOW                   // Show the dialog
+                    );
+
+                    // Check if the operation was successful
+                    // ShellExecuteW returns values > 32 for success
+                    if (result.ToInt32() <= 32)
                     {
-                        InitializeItems();
+                        throw new Exception($"ShellExecuteW failed with code: {result.ToInt32()}");
+                    }
+
+                    // Refresh after a short delay since we can't wait for dialog completion
+                    var timer = new Timer();
+                    timer.Interval = 500; // 500ms delay
+                    timer.Tick += (s, args) =>
+                    {
+                        timer.Stop();
+                        timer.Dispose();
+                        // Refresh items in case properties were changed
+                        if (!this.IsDisposed)
+                        {
+                            this.BeginInvoke(new Action(() => InitializeItems()));
+                        }
+                    };
+                    timer.Start();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error opening shortcut properties: {ex.Message}", 
+                        "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+                    // Fallback to custom dialog if ShellExecuteW fails
+                    using (FormCreateItem createform = new FormCreateItem(this.Tag?.ToString() ?? "", selectedItem.Text))
+                    {
+                        if (createform.ShowDialog() == DialogResult.OK)
+                        {
+                            InitializeItems();
+                        }
                     }
                 }
             }
@@ -1046,7 +1239,7 @@ namespace ProgramManagerVC
 
         #region Icon Size Management
 
-        private void LoadIconSizeFromINI()
+        private void LoadIconSizeFromJSON()
         {
             // Load saved icon size from application settings
             var iconSizeStr = JsonBasedData.LoadApplicationSetting("icon_size", "32");
@@ -1073,7 +1266,7 @@ namespace ProgramManagerVC
             imageListIcons.ImageSize = new Size(currentIconSize, currentIconSize);
         }
 
-        private void SaveIconSizeToINI()
+        private void SaveIconSizeToJSON()
         {
             JsonBasedData.SaveApplicationSettings("icon_size", currentIconSize.ToString());
         }
@@ -1136,7 +1329,7 @@ namespace ProgramManagerVC
             imageListIcons.ImageSize = new Size(currentIconSize, currentIconSize);
 
             // Save to INI
-            SaveIconSizeToINI();
+            SaveIconSizeToJSON();
 
             // Refresh icons with new size
             RefreshIconsWithNewSize();
@@ -1415,6 +1608,94 @@ namespace ProgramManagerVC
             } while (File.Exists(newPath));
 
             return newPath;
+        }
+
+        #endregion
+
+        #region System Menu Customization
+
+        /// <summary>
+        /// Add custom items to the system menu
+        /// </summary>
+        private void AddSystemMenuItems()
+        {
+            // Get the system menu handle
+            IntPtr systemMenuHandle = GetSystemMenu(this.Handle, false);
+
+            if (systemMenuHandle != IntPtr.Zero)
+            {
+                // Add a separator
+                AppendMenu(systemMenuHandle, MF_SEPARATOR, 0, string.Empty);
+
+                // Add "Open folder in Explorer" item
+                AppendMenu(systemMenuHandle, MF_STRING, IDM_OPEN_FOLDER, "Open folder in Explorer");
+            }
+        }
+
+        /// <summary>
+        /// Override WndProc to handle custom system menu items
+        /// </summary>
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == WM_SYSCOMMAND)
+            {
+                uint commandId = (uint)(m.WParam.ToInt32() & 0xFFFF);
+
+                if (commandId == IDM_OPEN_FOLDER)
+                {
+                    OpenFolderInExplorer();
+                    return; // Don't pass to base class
+                }
+            }
+
+            base.WndProc(ref m);
+        }
+
+        /// <summary>
+        /// Open the shortcuts folder in Windows Explorer
+        /// </summary>
+        private void OpenFolderInExplorer()
+        {
+            try
+            {
+                var groupName = GetGroupNameFromId(this.Tag?.ToString() ?? "");
+                string folderPath;
+
+                if (groupName == "Programs")
+                {
+                    // For Programs group, open the root Shortcuts folder
+                    folderPath = JsonBasedData.GetGroupsFolder();
+                }
+                else if (!string.IsNullOrEmpty(groupName))
+                {
+                    // For other groups, open the group's subfolder
+                    folderPath = Path.Combine(JsonBasedData.GetGroupsFolder(), groupName);
+                }
+                else
+                {
+                    // Fallback to root folder
+                    folderPath = JsonBasedData.GetGroupsFolder();
+                }
+
+                if (Directory.Exists(folderPath))
+                {
+                    Process.Start("explorer.exe", $"\"{folderPath}\"");
+                }
+                else
+                {
+                    MessageBox.Show($"Folder does not exist:\n{folderPath}", 
+                        "Folder Not Found", 
+                        MessageBoxButtons.OK, 
+                        MessageBoxIcon.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error opening folder in Explorer:\n{ex.Message}", 
+                    "Error", 
+                    MessageBoxButtons.OK, 
+                    MessageBoxIcon.Error);
+            }
         }
 
         #endregion
